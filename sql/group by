@@ -1,0 +1,37 @@
+SELECT employee_id, department_id, job_id
+from hr.EMPLOYEES
+intersect
+SELECT employee_id, department_id, job_id
+from hr.JOB_HISTORY;
+
+SELECT count(*)
+from (
+    SELECT employee_id
+    from hr.EMPLOYEES
+    minus
+    SELECT employee_id
+    from hr.JOB_HISTORY
+);
+
+SELECT null, null, avg(salary)
+from hr.EMPLOYEES
+union all
+SELECT department_id, '',avg(salary)
+from hr.EMPLOYEES
+group by department_id
+union all
+SELECT department_id, job_id, avg(salary)
+from hr.EMPLOYEES
+group by department_id, job_id;
+
+SELECT department_id, job_id, avg(salary)
+from hr.EMPLOYEES
+group by rollup(department_id, job_id);
+
+SELECT department_id, job_id, avg(salary)
+from hr.EMPLOYEES
+group by cube(department_id, job_id);
+
+SELECT department_id, job_id, avg(salary)
+from hr.EMPLOYEES
+group by grouping SETS((department_id, job_id),(department_id, MANAGER_ID));
