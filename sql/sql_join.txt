@@ -1,0 +1,40 @@
+SQL-JOIN
+
+rdbms에서는 data관점으로 설계 -> Table(PK와 종속된 속성)
+
+예) employees(사번, 이름, 직무, 입사날짜, 급여, 소속부서번호(FK), ...) -> child
+    departments(부서번호(PK), 이름, 관리자, 부서위치, ...) -> parent
+
+inner join 또는 equi join은 parent.pk = child.fk로 조인 조건으로 선언
+non-equi join
+inner join 또는 equi join은 join key가 null인 row는 결과 집합에서 누락됨
+join key가 null인 row를 결과 집합에 포함하려면 -> outer join으로 처리
+
+table1.PK를 참조하는 table1.FK가 존재하는 경우 (자기 참조 가능) -> self join으로 하나의 테이블에서 2개의 행을 연결할 수 있음
+
+cross join (catesian product) : 조인조건 없이 table의 모든 행을 연결할 다른 table의 모든 행과 한번씩 조인
+
+[join 문법]
+inner join equi join : where 조인조건
+                       from table1 inner join table2 on 조인조건
+non-equi join : where 조인 조건
+                from table1 (inner) join table2 on 조인조건
+outer join : from table1 a, table2 b where a.col = b.col (+)
+             from table1 a left outer join table2 on a.col = b.col
+             from table1 a right outer join table2 on a.col = b.col
+             from table1 a full outer join table2 on a.col = b.col
+
+self join : where 조인조건
+            from table1 a (inner) join table1 b on a.pk = b.fk
+
+cross join : where 조인조건을 선언하지 않습니다.
+             from table1 a cross join table1 b
+
+
+select a.ename, b.dname
+from scott.emp a, scott.dept b
+where a.deptno = b.deptno;
+
+select a.ename, b.dname
+from scott.emp a join scott.dept b
+on a.deptno = b.deptno;

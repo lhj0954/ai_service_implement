@@ -1,0 +1,6 @@
+정확도 - accuracy_score(실제값y, 예측값y)
+정밀도 - precision_score : false positive 값이 클 때
+F1 Score - f1_score() : 클래스 불균형 일 때
+재현율 - recall_score() : false negative 값이 클 때
+ROC-AUC - roc_auc_score() : 이진 분류 분석에서 확률 예측
+

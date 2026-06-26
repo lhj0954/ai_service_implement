@@ -1,0 +1,140 @@
+import pandas as pd
+
+df = pd.read_csv("../datasets/coffee_consumption.csv")
+
+# 1) 대륙별 Arabica 평균이 가장 큰 대륙
+continent_ara_most = df.groupby('continent')['Arabica_consumption'].mean().idxmax()
+
+# 2) 그 대륙 데이터만 추출 후 Arabica 소비량 내림차순 정렬
+df_continent = df[df['continent'] == continent_ara_most] \
+                .sort_values('Arabica_consumption', ascending=False) \
+                .reset_index(drop=True)
+
+# 3) 다섯 번째 나라의 Arabica 소비량
+answer = int(df_continent.iloc[4]['Arabica_consumption'])
+
+print(continent_ara_most)
+print(df_continent.iloc[4]['country'])
+print(answer)
+---------------------------------------------------------------------------------------------------------------
+import pandas as pd
+
+df = pd.read_csv("../datasets/Auto_sales.csv")
+
+# SUV 판매 비율 계산
+df["suv_ratio"] = df["suv_sales"] / df["total_sales"]
+
+# SUV 판매 비율이 세 번째로 높은 나라
+third_suv_ratio_country = df.sort_values("suv_ratio", ascending=False).iloc[2]
+sedan_value = third_suv_ratio_country["sedan_sales"]
+
+# 세단 판매량이 네 번째로 높은 나라
+fourth_sedan_country = df.sort_values("sedan_sales", ascending=False).iloc[3]
+suv_value = fourth_sedan_country["suv_sales"]
+
+answer = sedan_value + suv_value
+
+print(answer)
+-------------------------------------------------------------------------------------------------------------
+import pandas as pd
+
+df = pd.read_csv("../datasets/Auto_sales.csv")
+
+# SUV 판매 비율 계산
+df["suv_ratio"] = df["suv_sales"] / df["total_sales"]
+
+# SUV 판매 비율이 세 번째로 높은 나라
+third_suv_ratio_country = df.sort_values("suv_ratio", ascending=False).iloc[2]
+sedan_value = third_suv_ratio_country["sedan_sales"]
+
+# 세단 판매량이 네 번째로 높은 나라
+fourth_sedan_country = df.sort_values("sedan_sales", ascending=False).iloc[3]
+suv_value = fourth_sedan_country["suv_sales"]
+
+answer = sedan_value + suv_value
+
+print(answer)
+----------------------------------------------------------------------------------------------
+import pandas as pd
+
+df = pd.read_csv("../datasets/09.01.bank_loan.csv")
+
+# 1) 연령층별 P은행, S은행 대출 평균
+mean_df = df.groupby("age_group")[["p_bank_loan", "s_bank_loan"]].mean()
+
+print(mean_df)
+
+# 2) 연령층별 두 은행 대출금액 차이
+mean_df["loan_diff"] = abs(mean_df["p_bank_loan"] - mean_df["s_bank_loan"])
+
+max_age_group = mean_df["loan_diff"].idxmax()
+
+print(mean_df["loan_diff"])
+print("차이가 가장 큰 연령층:", max_age_group)
+
+# 3) 차이가 가장 큰 연령층에서 개인별 차이가 가장 작은 고객번호
+df["customer_diff"] = abs(df["p_bank_loan"] - df["s_bank_loan"])
+
+target = df[df["age_group"] == max_age_group]
+
+answer_customer = target.sort_values("customer_diff").iloc[0]["customer_id"]
+
+print("정답 고객번호:", answer_customer)
+----------------------------------------------------------------------------------------
+import pandas as pd
+
+df = pd.read_csv("../datasets/09.02.crime.csv")
+
+# 검거율 계산
+df["arrest_rate"] = df["arrests"] / df["incidents"] * 100
+
+# 가장 마지막 분기
+last_quarter = df["quarter"].max()
+
+# 마지막 분기 데이터만 추출
+last_df = df[df["quarter"] == last_quarter]
+
+# 마지막 분기에서 검거율이 가장 높은 범죄유형
+target_crime = last_df.sort_values("arrest_rate", ascending=False).iloc[0]["crime_type"]
+
+# 해당 범죄유형의 검거건수 총합
+answer = df[df["crime_type"] == target_crime]["arrests"].sum()
+
+print("마지막 분기:", last_quarter)
+print("검거율이 가장 높은 범죄유형:", target_crime)
+print("검거건수 총합:", answer)
+--------------------------------------------------------------------------------------------
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv("../datasets/09.03.employees.csv")
+
+# 1) training_score 결측값: 해당 부서의 중앙값으로 대체
+df["training_score"] = df["training_score"].fillna(
+    df.groupby("department")["training_score"].transform("median")
+)
+
+# 2) years_of_service 결측값: 성과등급별 근속연수 평균값으로 대체
+# 평균값은 소수점 이하 올림
+service_mean = df.groupby("performance_rating")["years_of_service"].transform(
+    lambda x: np.ceil(x.mean())
+)
+
+df["years_of_service"] = df["years_of_service"].fillna(service_mean)
+
+# (1) salary / years_of_service 기준 상위 3번째 직원의 근속연수
+df["salary_per_service"] = df["salary"] / df["years_of_service"]
+
+third_emp = df.sort_values("salary_per_service", ascending=False).iloc[2]
+
+print("상위 3번째 직원:", third_emp["emp_id"])
+print("근속연수:", int(third_emp["years_of_service"]))
+
+# (2) salary / training_score 기준 상위 5번째 직원의 교육점수와 부서
+df["salary_per_training"] = df["salary"] / df["training_score"]
+
+fifth_emp = df.sort_values("salary_per_training", ascending=False).iloc[4]
+
+print("상위 5번째 직원:", fifth_emp["emp_id"])
+print("교육점수:", int(fifth_emp["training_score"]))
+print("부서:", fifth_emp["department"])
