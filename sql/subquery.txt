@@ -1,0 +1,62 @@
+데이터 연결 : subquery (nested query, inner query)
+
+select (subquery)
+from (subquery)
+where 컬럼 연산자 (subquery)
+group by
+having 그룹함수 연산자 (subquery)
+order by 컬럼 asc|desc, (subquery)
+
+insert into (subquery)
+valuse (...);
+
+insert into table (columns ...)
+subquery;
+
+update table
+set column = (subquery)
+where 컬럼 연산자 (subquery)
+
+delete [from] table
+ where 컬럼 연산자 (subquery)
+
+ create or replace view ~~
+ as
+    select ~
+    from ~
+    ~~~;
+
+create table ~
+as
+select ~
+    from ~
+    ~~~;
+
+with 별칭1 as (select ~
+             from ~
+             ~),
+    별칭2 as (select ~
+             from ~
+             ~),
+select ~
+from 별칭 1, 별칭 2
+
+[subquery 종류]
+single row subquery - 단일행 서브쿼리, where절, single row operator(비교 연산자) 와 함께 선언
+
+multiple row subquery - where 절, multiple row operator(in, >ANY, <ANY, >ALL, <ALL)
+
+scalar subquery - 하나의 행의 하나의 컬럼값을 반환하는 subquery, select절의 subquery, update의 set절의 subquery, order by절의 subquery
+
+multiple column subquery - pair-wise로 비교하기 위해서 사용 where (col1, col2) in (select col1, col2 from ~)
+
+correlation subquery - 상관관계 subquery 
+select ...
+from table main
+where 컬럼 연산자 (select 컬럼
+                 from table2 subquery
+                 where main.col2 = col2)
+1. main query로 부터 후보행 1개 가져옴(get)
+2. 후보행을 사용해서 subquery실행(execute)
+3. subquery의 결과를 main query로 전달, main query 수행
+4. main query의 행수 만큼 subquery가 반복 수행 ()
