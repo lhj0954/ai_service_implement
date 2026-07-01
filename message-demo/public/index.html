@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LangChain Message 클래스 실습</title>
+<style>
+/* ── Reset & Base ── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#e2e6ef;color:#1e2235;min-height:100vh}
+
+/* ── Header ── */
+header{background:#fff;border-bottom:1px solid #c8cedd;padding:13px 28px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header h1{font-size:.98rem;font-weight:700}
+.pkg{font-family:monospace;font-size:.68rem;background:#e2e6ef;border:1px solid #c8cedd;padding:2px 8px;border-radius:4px;color:#556}
+
+/* ── Tab Nav ── */
+nav{background:#fff;border-bottom:1px solid #c8cedd;display:flex;padding:0 28px;overflow-x:auto}
+.tab{padding:11px 20px;font-size:.81rem;font-weight:500;border:none;background:none;cursor:pointer;color:#778;border-bottom:2px solid transparent;position:relative;bottom:-1px;white-space:nowrap;font-family:inherit;transition:color .15s}
+.tab:hover{color:#334}
+.tab.active{font-weight:700;border-bottom-color:currentColor}
+.tab:nth-child(1).active{color:#2a4fcc}
+.tab:nth-child(2).active{color:#0891b2}
+.tab:nth-child(3).active{color:#c2410c}
+.tab:nth-child(4).active{color:#7c3aed}
+
+/* ── Layout ── */
+.page{max-width:960px;margin:20px auto;padding:0 16px 52px}
+.panel{display:none;flex-direction:column;gap:13px}
+.panel.active{display:flex}
+
+/* ── Card ── */
+.card{background:#fff;border:1px solid #c8cedd;border-radius:10px;overflow:hidden}
+.card-head{padding:13px 18px 11px;border-bottom:1px solid #eaedf4;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.card-title{font-size:.88rem;font-weight:700;margin-bottom:2px}
+.card-desc{font-size:.74rem;color:#778;line-height:1.5}
+.card-body{padding:15px 18px}
+
+.badge{font-family:monospace;font-size:.67rem;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap;flex-shrink:0}
+.b1{background:#dbeafe;color:#1d4ed8}
+.b2{background:#cffafe;color:#0e7490}
+.b3{background:#ffedd5;color:#c2410c}
+.b4{background:#ede9fe;color:#6d28d9}
+
+/* ── Code Block ── */
+.code-block{background:#1a1d2e;border-radius:7px;padding:12px 15px;font-family:'JetBrains Mono',monospace;font-size:.73rem;line-height:1.85;color:#c8d0f0;overflow-x:auto;white-space:pre;margin-bottom:14px}
+.kw{color:#bb9af7}.fn{color:#7dcfff}.str{color:#9ece6a}.cmt{color:#565f89;font-style:italic}.cls{color:#e0af68}.num{color:#ff9e64}
+
+/* ── Forms ── */
+label{display:block;font-size:.75rem;color:#556;font-weight:600;margin-bottom:4px}
+input[type="text"],textarea{width:100%;border:1px solid #c8cedd;border-radius:6px;padding:8px 12px;font-size:.84rem;font-family:inherit;color:#1e2235;background:#f6f8fc;outline:none;transition:border-color .15s,box-shadow .15s}
+input[type="text"]:focus,textarea:focus{border-color:#2a4fcc;box-shadow:0 0 0 3px rgba(42,79,204,.1);background:#fff}
+textarea{resize:vertical;line-height:1.5}
+.form-row{display:flex;gap:9px;align-items:flex-end}
+.fg{flex:1}
+
+/* ── Buttons ── */
+.btn{padding:8px 17px;border:none;border-radius:6px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:opacity .15s,transform .1s}
+.btn:hover:not(:disabled){opacity:.85;transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn1{background:#2a4fcc;color:#fff}
+.btn2{background:#0891b2;color:#fff}
+.btn3{background:#c2410c;color:#fff}
+.btn4{background:#7c3aed;color:#fff}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Divider ── */
+.divider{height:1px;background:#eaedf4;margin:13px 0}
+.rw{display:none}.rw.show{display:block}
+.rl{font-size:.66rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#889;margin-bottom:6px;margin-top:12px}
+.rl:first-child{margin-top:0}
+
+/* ── Message Bubbles ── */
+.msg-flow{display:flex;flex-direction:column;gap:6px}
+.msg-bubble{display:flex;align-items:flex-start;gap:9px;padding:9px 13px;border-radius:8px;font-size:.8rem;line-height:1.55}
+.mb-system {background:rgba(124,106,247,.08);border:1px solid rgba(124,106,247,.2)}
+.mb-human  {background:rgba(8,145,178,.08); border:1px solid rgba(8,145,178,.2)}
+.mb-ai     {background:rgba(194,65,12,.08);  border:1px solid rgba(194,65,12,.2)}
+.mb-tool   {background:rgba(22,163,74,.08);  border:1px solid rgba(22,163,74,.2)}
+.mb-ph     {background:rgba(107,114,148,.06);border:1px dashed rgba(107,114,148,.35)}
+.msg-tag{font-family:monospace;font-size:.63rem;font-weight:700;padding:1px 6px;border-radius:3px;white-space:nowrap;flex-shrink:0;margin-top:1px}
+.mb-system .msg-tag{background:rgba(124,106,247,.22);color:#6d28d9}
+.mb-human  .msg-tag{background:rgba(8,145,178,.22); color:#0e7490}
+.mb-ai     .msg-tag{background:rgba(194,65,12,.22);  color:#c2410c}
+.mb-tool   .msg-tag{background:rgba(22,163,74,.22);  color:#15803d}
+.mb-ph     .msg-tag{background:rgba(107,114,148,.15);color:#556}
+.msg-content{color:#334;word-break:break-word;flex:1}
+
+/* ── AIMessage Prop Table ── */
+.prop-table{width:100%;border-collapse:collapse;font-size:.79rem}
+.prop-table tr{border-bottom:1px solid #eaedf4}
+.prop-table tr:last-child{border-bottom:none}
+.prop-table td{padding:8px 6px;vertical-align:top}
+.prop-table td:first-child{font-family:monospace;font-size:.71rem;color:#2a4fcc;white-space:nowrap;padding-right:14px;width:34%}
+.prop-table td:last-child{color:#334;line-height:1.55}
+
+/* ── Token grid ── */
+.token-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:4px}
+.token-item{text-align:center;background:#f6f8fc;border:1px solid #dde1ec;border-radius:7px;padding:9px 10px}
+.token-val{font-family:monospace;font-size:1.2rem;font-weight:700}
+.token-lbl{font-size:.67rem;color:#889;margin-top:2px}
+.token-item:nth-child(1) .token-val{color:#2a4fcc}
+.token-item:nth-child(2) .token-val{color:#c2410c}
+.token-item:nth-child(3) .token-val{color:#15803d}
+
+/* ── Answer box ── */
+.ans-box{border-radius:7px;padding:12px 14px;font-size:.875rem;line-height:1.75;font-weight:500;word-break:break-word}
+.ans1{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+.ans2{background:#ecfeff;border:1px solid #a5f3fc;color:#0e7490}
+.ans3{background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12}
+.ans4{background:#faf5ff;border:1px solid #e9d5ff;color:#4c1d95}
+
+/* ── Before/After Compare ── */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:600px){.compare-grid{grid-template-columns:1fr}}
+.compare-box{border-radius:7px;padding:11px 13px;font-size:.79rem;line-height:1.6}
+.cb-before{background:#f6f8fc;border:1px solid #dde1ec;color:#445}
+.cb-after {background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+.cb-tag{display:inline-block;font-size:.63rem;font-weight:700;padding:1px 6px;border-radius:3px;margin-bottom:6px;font-family:monospace}
+.cbt-before{background:#e5e7eb;color:#374151}
+.cbt-after {background:#bbf7d0;color:#15803d}
+.cb-content{font-family:monospace;white-space:pre-wrap;word-break:break-word}
+
+/* ── Tool Step ── */
+.tool-flow{display:flex;flex-direction:column;gap:7px}
+.tool-step{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+.tool-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:.68rem;font-weight:700;flex-shrink:0}
+.tool-body{background:#f6f8fc;border:1px solid #dde1ec;border-radius:7px;padding:9px 13px;font-size:.79rem}
+.tool-label{font-family:monospace;font-size:.67rem;font-weight:700;margin-bottom:3px;color:#889}
+.tool-val{color:#1e2235;word-break:break-word;line-height:1.5}
+.step-c1{background:rgba(8,145,178,.15); color:#0e7490}
+.step-c2{background:rgba(124,106,247,.15);color:#6d28d9}
+.step-c3{background:rgba(22,163,74,.15);  color:#15803d}
+.step-c4{background:rgba(194,65,12,.15);  color:#c2410c}
+
+/* ── Upload area ── */
+.upload-area{border:2px dashed #c8cedd;border-radius:8px;padding:24px 16px;text-align:center;cursor:pointer;transition:all .2s;background:#fafbfd;margin-bottom:11px}
+.upload-area:hover,.upload-area.on{border-color:#0891b2;background:#ecfeff}
+.upload-icon{font-size:1.8rem;margin-bottom:5px}
+.upload-text{font-size:.78rem;color:#778}
+.upload-name{font-size:.8rem;color:#0891b2;font-weight:600;margin-top:4px}
+
+/* ── Chat history (demo4) ── */
+.chat-hist{display:flex;flex-direction:column;gap:6px;max-height:150px;overflow-y:auto;background:#f6f8fc;border:1px solid #dde1ec;border-radius:7px;padding:10px 12px;margin-bottom:11px}
+.ch-msg{font-size:.79rem;padding:5px 10px;border-radius:5px}
+.ch-msg.human{background:#dbeafe;color:#1e40af;text-align:right}
+.ch-msg.ai   {background:#ede9fe;color:#4c1d95}
+.ch-lbl{font-size:.62rem;opacity:.6;font-family:monospace;margin-bottom:2px}
+
+/* ── Placeholder explained ── */
+.ph-box{background:#fffbeb;border:1px solid #fde68a;border-radius:7px;padding:11px 13px;font-size:.78rem;color:#78350f;line-height:1.6;margin-top:10px}
+.ph-box strong{font-family:monospace}
+
+/* ── JSON highlight ── */
+.jk{color:#2a4fcc}.jv-s{color:#15803d}.jv-n{color:#c2410c}.jv-b{color:#7c3aed}.jv-null{color:#889}
+pre.json-pre{font-family:monospace;font-size:.73rem;line-height:1.7;white-space:pre-wrap;word-break:break-word;background:#f6f8fc;border:1px solid #dde1ec;border-radius:7px;padding:11px 13px;color:#334}
+
+/* ── Error ── */
+.err-box{background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:9px 13px;font-size:.77rem;color:#dc2626;display:none;margin-top:9px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LangChain Message 클래스 실습</h1>
+  <span class="pkg">@langchain/core/messages</span>
+  <span class="pkg">SystemMessage</span>
+  <span class="pkg">HumanMessage</span>
+  <span class="pkg">AIMessage</span>
+  <span class="pkg">ToolMessage</span>
+  <span class="pkg">MessagesPlaceholder</span>
+</header>
+
+<nav>
+  <button class="tab active" onclick="switchTab(0)">1. AIMessage 속성</button>
+  <button class="tab"        onclick="switchTab(1)">2. HumanMessage 멀티모달</button>
+  <button class="tab"        onclick="switchTab(2)">3. ToolMessage</button>
+  <button class="tab"        onclick="switchTab(3)">4. MessagesPlaceholder</button>
+</nav>
+
+<div class="page">
+
+<!-- ══════════════ DEMO 1 ══════════════ -->
+<div class="panel active" id="tab0">
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">AIMessage 속성 이해</div>
+        <div class="card-desc">SystemMessage + HumanMessage를 전달하면 AIMessage가 반환됩니다.<br>
+          반환된 AIMessage의 <code>content</code>, <code>tool_calls</code>, <code>usage_metadata</code>, <code>response_metadata</code> 속성을 확인합니다.</div>
+      </div>
+      <span class="badge b1">AIMessage</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="kw">const</span> messages = [
+  <span class="kw">new</span> <span class="cls">SystemMessage</span>(<span class="str">"당신은 친절한 한국어 수학 선생님입니다."</span>),
+  <span class="kw">new</span> <span class="cls">HumanMessage</span>(<span class="str">"15 × 23 + 7는 얼마야?"</span>),
+];
+<span class="kw">const</span> response = <span class="kw">await</span> model.<span class="fn">invoke</span>(messages);
+<span class="cmt">// response: AIMessage</span>
+<span class="cmt">// response.content          — 모델 답변 텍스트</span>
+<span class="cmt">// response.tool_calls       — 호출한 Tool 목록</span>
+<span class="cmt">// response.usage_metadata   — 토큰 사용량</span>
+<span class="cmt">// response.response_metadata — OpenAI API 원본 메타데이터</span></div>
+
+      <button class="btn btn1" id="btn1" onclick="runDemo1()">▶ 실행</button>
+      <div class="err-box" id="err1"></div>
+
+      <div class="rw" id="r1">
+        <div class="divider"></div>
+
+        <div class="rl">전송한 메시지 클래스</div>
+        <div class="msg-flow" id="r1-msgs"></div>
+
+        <div class="rl">AIMessage.content — 모델 답변</div>
+        <div class="ans-box ans1" id="r1-content"></div>
+
+        <div class="rl">AIMessage.usage_metadata — 토큰 사용량</div>
+        <div class="token-grid" id="r1-tokens"></div>
+
+        <div class="rl">AIMessage.response_metadata — API 메타데이터</div>
+        <pre class="json-pre" id="r1-meta"></pre>
+
+        <div class="rl">AIMessage.tool_calls</div>
+        <pre class="json-pre" id="r1-tools"></pre>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════ DEMO 2 ══════════════ -->
+<div class="panel" id="tab1">
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">HumanMessage 멀티모달</div>
+        <div class="card-desc">HumanMessage의 content를 배열로 구성하면 텍스트와 이미지를 함께 전달할 수 있습니다.<br>
+          <code>content: [ {type:"text"}, {type:"image_url"} ]</code></div>
+      </div>
+      <span class="badge b2">HumanMessage</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="kw">const</span> message = <span class="kw">new</span> <span class="cls">HumanMessage</span>({
+  content: [
+    { type: <span class="str">"text"</span>,      text: <span class="str">"이 이미지에 무엇이 있나요?"</span> },
+    { type: <span class="str">"image_url"</span>, image_url: { url: <span class="str">`data:image/jpeg;base64,\${b64}`</span> } },
+  ],
+});
+<span class="kw">const</span> response = <span class="kw">await</span> model.<span class="fn">invoke</span>([message]);</div>
+
+      <div class="upload-area" id="upload2" onclick="document.getElementById('file2').click()">
+        <input type="file" id="file2" accept="image/*" style="display:none" onchange="onFile2(event)"/>
+        <div class="upload-icon">🖼️</div>
+        <div class="upload-text">클릭하거나 이미지를 드래그해서 업로드</div>
+        <div class="upload-name" id="fname2"></div>
+      </div>
+
+      <button class="btn btn2" id="btn2" onclick="runDemo2()" disabled>▶ 이미지 분석 실행</button>
+      <div class="err-box" id="err2"></div>
+
+      <div class="rw" id="r2">
+        <div class="divider"></div>
+        <div class="rl">HumanMessage 구조 (content 배열)</div>
+        <div class="compare-grid">
+          <div class="compare-box cb-before">
+            <div class="cb-tag cbt-before">before — 단순 문자열</div>
+            <div class="cb-content">new HumanMessage("텍스트만")</div>
+          </div>
+          <div class="compare-box cb-after">
+            <div class="cb-tag cbt-after">after — 배열 (멀티모달)</div>
+            <div class="cb-content" id="r2-struct"></div>
+          </div>
+        </div>
+        <div class="rl">AIMessage.content — 이미지 설명</div>
+        <div class="ans-box ans2" id="r2-content"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════ DEMO 3 ══════════════ -->
+<div class="panel" id="tab2">
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">ToolMessage — Tool Calling 전체 흐름</div>
+        <div class="card-desc">Human → AIMessage(tool_calls) → ToolMessage(결과) → AIMessage(최종)<br>
+          4단계 메시지 흐름을 통해 Tool Calling이 어떻게 동작하는지 확인합니다.</div>
+      </div>
+      <span class="badge b3">ToolMessage</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="cmt">// 1. Tool 바인딩</span>
+<span class="kw">const</span> modelWithTools = model.<span class="fn">bindTools</span>([multiply, add]);
+
+<span class="cmt">// 2. 첫 호출 → AIMessage with tool_calls</span>
+<span class="kw">const</span> aiResponse = <span class="kw">await</span> modelWithTools.<span class="fn">invoke</span>([<span class="kw">new</span> <span class="cls">HumanMessage</span>(question)]);
+
+<span class="cmt">// 3. Tool 실행 결과를 ToolMessage로 래핑</span>
+<span class="kw">const</span> toolMsg = <span class="kw">new</span> <span class="cls">ToolMessage</span>({ content: result, tool_call_id: tc.id });
+
+<span class="cmt">// 4. 전체 이력 포함 재호출 → 최종 AIMessage</span>
+<span class="kw">const</span> final = <span class="kw">await</span> modelWithTools.<span class="fn">invoke</span>([humanMsg, aiResponse, toolMsg]);</div>
+
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="fg">
+          <label>질문 입력</label>
+          <input type="text" id="q3" value="17 곱하기 42는 얼마야?" onkeydown="if(event.key==='Enter')runDemo3()"/>
+        </div>
+        <button class="btn btn3" id="btn3" onclick="runDemo3()">▶ 실행</button>
+      </div>
+      <div class="err-box" id="err3"></div>
+
+      <div class="rw" id="r3">
+        <div class="divider"></div>
+        <div class="rl">메시지 흐름 (4단계)</div>
+        <div class="tool-flow" id="r3-flow"></div>
+        <div class="rl">Tool 실행 결과</div>
+        <div id="r3-tools"></div>
+        <div class="rl">최종 답변 (AIMessage.content)</div>
+        <div class="ans-box ans3" id="r3-final"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════ DEMO 4 ══════════════ -->
+<div class="panel" id="tab3">
+
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">MessagesPlaceholder — 대화 이력 동적 삽입</div>
+        <div class="card-desc">System → Few-shot → <strong>MessagesPlaceholder(이력)</strong> → Human(현재 질문)<br>
+          질문을 반복할수록 이전 대화 맥락이 프롬프트에 누적됩니다.</div>
+      </div>
+      <span class="badge b4">MessagesPlaceholder</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="kw">const</span> messages = [
+  <span class="kw">new</span> <span class="cls">SystemMessage</span>(<span class="str">"한국어 선생님 페르소나..."</span>),
+  <span class="kw">new</span> <span class="cls">HumanMessage</span>(<span class="str">"자음 탈락이 뭐야?"</span>),  <span class="cmt">// Few-shot</span>
+  <span class="kw">new</span> <span class="cls">AIMessage</span>(<span class="str">"..."</span>),               <span class="cmt">// Few-shot</span>
+  <span class="cmt">// ↓ MessagesPlaceholder("chat_history") 위치</span>
+  ...chatHistory,            <span class="cmt">// 런타임에 동적 삽입</span>
+  <span class="kw">new</span> <span class="cls">HumanMessage</span>(question),
+];</div>
+
+      <!-- 이력 표시 -->
+      <div class="rl">대화 이력 (MessagesPlaceholder에 삽입됨)</div>
+      <div class="chat-hist" id="ch4">
+        <div style="color:#aab;font-size:.77rem;text-align:center;padding:6px">아직 대화 이력이 없습니다. 질문하면 이력이 쌓입니다.</div>
+      </div>
+
+      <div class="form-row" style="margin-bottom:10px">
+        <div class="fg">
+          <label>한국어 관련 질문</label>
+          <input type="text" id="q4" value="모음 조화가 무엇인가요?" onkeydown="if(event.key==='Enter')runDemo4()"/>
+        </div>
+        <button class="btn btn4" id="btn4" onclick="runDemo4()">▶ 전송</button>
+      </div>
+      <div class="err-box" id="err4"></div>
+
+      <div class="rw" id="r4">
+        <div class="divider"></div>
+        <div class="rl">AI 답변</div>
+        <div class="ans-box ans4" id="r4-ans"></div>
+
+        <div class="rl">실제 전송된 메시지 체인</div>
+        <div class="msg-flow" id="r4-chain"></div>
+
+        <div class="ph-box" id="r4-ph"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /tab3 -->
+</div><!-- /page -->
+
+<script>
+// ── Tab ──────────────────────────────────────────
+function switchTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
+  document.querySelectorAll('.panel').forEach((p,j)=>p.classList.toggle('active',i===j));
+}
+
+// ── Helpers ──────────────────────────────────────
+async function post(url, body) {
+  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const d = await r.json();
+  if (!d.success) throw new Error(d.error);
+  return d;
+}
+function setBtn(id, loading, label) {
+  const b = document.getElementById(id);
+  b.disabled = loading;
+  b.innerHTML = loading ? `<span class="spinner"></span>처리 중...` : label;
+}
+function showErr(id, msg) { const e=document.getElementById(id); e.textContent='❌ '+msg; e.style.display='block'; }
+function hideErr(id) { document.getElementById(id).style.display='none'; }
+function show(id) { document.getElementById(id).classList.add('show'); }
+
+// JSON highlight
+function hl(obj) {
+  return JSON.stringify(obj, null, 2)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/("(\\u[a-z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m=>{
+      if(/^"/.test(m)) return /:$/.test(m)?`<span class="jk">${m}</span>`:`<span class="jv-s">${m}</span>`;
+      if(/true|false/.test(m)) return `<span class="jv-b">${m}</span>`;
+      if(/null/.test(m)) return `<span class="jv-null">${m}</span>`;
+      return `<span class="jv-n">${m}</span>`;
+    });
+}
+
+// Message bubble helper
+const MB = { system:'mb-system', human:'mb-human', ai:'mb-ai', tool:'mb-tool', placeholder:'mb-ph' };
+const TAG = { system:'System', human:'Human', ai:'AI', tool:'Tool', placeholder:'Placeholder' };
+function msgBubble(type, content) {
+  return `<div class="msg-bubble ${MB[type]??'mb-ai'}">
+    <span class="msg-tag">${TAG[type]??type}</span>
+    <span class="msg-content">${content}</span>
+  </div>`;
+}
+
+// ── Demo 1 ────────────────────────────────────────
+async function runDemo1() {
+  setBtn('btn1',true,'▶ 실행'); hideErr('err1');
+  document.getElementById('r1').classList.remove('show');
+  try {
+    const d = await post('/api/demo1', {});
+
+    // 메시지 클래스
+    document.getElementById('r1-msgs').innerHTML =
+      d.message_classes.map(m => msgBubble(m.type, m.content)).join('');
+
+    // content
+    document.getElementById('r1-content').textContent = d.content;
+
+    // tokens
+    const u = d.usage_metadata ?? {};
+    document.getElementById('r1-tokens').innerHTML = `
+      <div class="token-item"><div class="token-val">${u.input_tokens??'—'}</div><div class="token-lbl">input_tokens</div></div>
+      <div class="token-item"><div class="token-val">${u.output_tokens??'—'}</div><div class="token-lbl">output_tokens</div></div>
+      <div class="token-item"><div class="token-val">${u.total_tokens??'—'}</div><div class="token-lbl">total_tokens</div></div>`;
+
+    // metadata
+    document.getElementById('r1-meta').innerHTML = hl(d.response_metadata);
+
+    // tool_calls
+    document.getElementById('r1-tools').innerHTML = d.tool_calls
+      ? hl(d.tool_calls)
+      : '<span style="color:#aab">[] — 이 요청에서는 Tool이 호출되지 않음</span>';
+
+    show('r1');
+  } catch(e) { showErr('err1', e.message); }
+  finally { setBtn('btn1',false,'▶ 실행'); }
+}
+
+// ── Demo 2 ────────────────────────────────────────
+let b64img = null, imgMime = 'image/jpeg';
+
+function onFile2(e) {
+  const f = e.target.files[0]; if(!f) return;
+  imgMime = f.type || 'image/jpeg';
+  const r = new FileReader();
+  r.onload = ev => {
+    b64img = ev.target.result.split(',')[1];
+    document.getElementById('fname2').textContent = f.name;
+    document.getElementById('upload2').classList.add('on');
+    document.getElementById('btn2').disabled = false;
+  };
+  r.readAsDataURL(f);
+}
+
+// Drag-and-drop
+const ua2 = document.getElementById('upload2');
+ua2.addEventListener('dragover', e=>{ e.preventDefault(); ua2.classList.add('on'); });
+ua2.addEventListener('dragleave', ()=>ua2.classList.remove('on'));
+ua2.addEventListener('drop', e=>{ e.preventDefault(); ua2.classList.remove('on');
+  const f=e.dataTransfer.files[0]; if(f&&f.type.startsWith('image/')){ const dt=new DataTransfer(); dt.items.add(f); document.getElementById('file2').files=dt.files; onFile2({target:{files:[f]}}); }
+});
+
+async function runDemo2() {
+  if(!b64img) return;
+  setBtn('btn2',true,'▶ 이미지 분석 실행'); hideErr('err2');
+  document.getElementById('r2').classList.remove('show');
+  try {
+    const d = await post('/api/demo2', { imageBase64: b64img, mimeType: imgMime });
+
+    // struct
+    document.getElementById('r2-struct').textContent =
+      JSON.stringify(d.message_structure.content_blocks, null, 2);
+
+    // content
+    document.getElementById('r2-content').textContent = d.content;
+    show('r2');
+  } catch(e) { showErr('err2', e.message); }
+  finally { setBtn('btn2',false,'▶ 이미지 분석 실행'); }
+}
+
+// ── Demo 3 ────────────────────────────────────────
+const STEP_COLORS = ['step-c1','step-c2','step-c3','step-c4'];
+
+async function runDemo3() {
+  const q = document.getElementById('q3').value.trim(); if(!q) return;
+  setBtn('btn3',true,'▶ 실행'); hideErr('err3');
+  document.getElementById('r3').classList.remove('show');
+  try {
+    const d = await post('/api/demo3', { question: q });
+
+    // message flow
+    const flowEl = document.getElementById('r3-flow');
+    flowEl.innerHTML = d.message_flow.map((step, i) => {
+      let content = '';
+      if (step.content)    content = `<div class="tool-val">${step.content}</div>`;
+      if (step.tool_calls) content = `<div class="tool-val"><pre style="font-size:.72rem">${hl(step.tool_calls)}</pre></div>`;
+      if (step.tool)       content = `<div class="tool-val"><b>${step.tool}</b>(${JSON.stringify(step.args)}) → <b>${step.result}</b></div>`;
+      return `<div class="tool-step">
+        <div class="tool-num ${STEP_COLORS[i%4]}">${i+1}</div>
+        <div class="tool-body">
+          <div class="tool-label">${step.class}${step.detail?' — '+step.detail:''}</div>
+          ${content}
+        </div>
+      </div>`;
+    }).join('');
+
+    // tool executions
+    document.getElementById('r3-tools').innerHTML = d.tool_executions.map(t=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #eaedf4;font-size:.81rem">
+        <span style="font-family:monospace;color:#c2410c;font-weight:700;min-width:80px">${t.tool}()</span>
+        <span style="color:#889">a=${t.args.a}, b=${t.args.b}</span>
+        <span style="margin-left:auto;font-family:monospace;font-weight:700;font-size:.9rem;color:#15803d">= ${t.result}</span>
+      </div>`).join('');
+
+    document.getElementById('r3-final').textContent = d.final_answer ?? '(도구 호출 없음)';
+    show('r3');
+  } catch(e) { showErr('err3', e.message); }
+  finally { setBtn('btn3',false,'▶ 실행'); }
+}
+
+// ── Demo 4 ────────────────────────────────────────
+let history4 = [];
+
+function renderHistory() {
+  const el = document.getElementById('ch4');
+  if (!history4.length) {
+    el.innerHTML = '<div style="color:#aab;font-size:.77rem;text-align:center;padding:6px">아직 대화 이력이 없습니다. 질문하면 이력이 쌓입니다.</div>';
+    return;
+  }
+  el.innerHTML = history4.map(m=>`
+    <div class="ch-msg ${m.role}">
+      <div class="ch-lbl">${m.role}</div>
+      ${m.content}
+    </div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+const TYPE_MAP = { SystemMessage:'system', HumanMessage:'human', AIMessage:'ai', ToolMessage:'tool' };
+async function runDemo4() {
+  const q = document.getElementById('q4').value.trim(); if(!q) return;
+  setBtn('btn4',true,'▶ 전송'); hideErr('err4');
+  document.getElementById('r4').classList.remove('show');
+  try {
+    const d = await post('/api/demo4', { question: q, history: history4 });
+
+    // update history
+    history4.push({ role:'human', content: q });
+    history4.push({ role:'ai',    content: d.answer });
+    renderHistory();
+    document.getElementById('q4').value = '';
+
+    // answer
+    document.getElementById('r4-ans').textContent = d.answer;
+
+    // chain
+    document.getElementById('r4-chain').innerHTML = d.message_chain.map(m => {
+      const t = TYPE_MAP[m.class] ?? 'ai';
+      return msgBubble(t, m.content);
+    }).join('');
+
+    // placeholder box
+    const p = d.placeholder_explained;
+    document.getElementById('r4-ph').innerHTML =
+      `📌 <strong>${p.name}</strong>("<strong>${p.variable}</strong>") — ${p.description}<br>
+       이번 호출에서 삽입된 이력 메시지 수: <strong>${p.injected_count}개</strong>`;
+
+    show('r4');
+  } catch(e) { showErr('err4', e.message); }
+  finally { setBtn('btn4',false,'▶ 전송'); }
+}
+</script>
+</body>
+</html>
