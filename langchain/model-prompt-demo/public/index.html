@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LangChain Prompt 실습</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    background: #f0f0f0;
+    color: #333;
+    min-height: 100vh;
+  }
+
+  header {
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { font-size: 1.1rem; font-weight: 700; color: #222; }
+  header span {
+    font-family: monospace;
+    font-size: 0.75rem;
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #666;
+  }
+
+  /* Tab */
+  nav {
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    padding: 0 32px;
+    gap: 4px;
+  }
+  .tab {
+    padding: 12px 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #888;
+    border-bottom: 2px solid transparent;
+    position: relative;
+    bottom: -1px;
+    transition: color 0.15s;
+  }
+  .tab:hover { color: #444; }
+  .tab.active { color: #2563eb; border-bottom-color: #2563eb; font-weight: 600; }
+
+  /* Layout */
+  main { max-width: 900px; margin: 32px auto; padding: 0 20px; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Card */
+  .card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 4px;
+  }
+  .card .desc {
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 18px;
+    line-height: 1.5;
+  }
+
+  /* Form elements */
+  label { display: block; font-size: 0.8rem; color: #555; margin-bottom: 5px; font-weight: 500; }
+  input[type="text"], textarea {
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    color: #333;
+    background: #fafafa;
+    outline: none;
+    transition: border-color 0.15s;
+    margin-bottom: 12px;
+  }
+  input[type="text"]:focus, textarea:focus {
+    border-color: #2563eb;
+    background: #fff;
+  }
+  textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+
+  /* Button */
+  .btn {
+    padding: 9px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    font-family: inherit;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-blue  { background: #2563eb; color: #fff; }
+  .btn-green { background: #16a34a; color: #fff; }
+  .btn-orange{ background: #ea580c; color: #fff; }
+  .btn-purple{ background: #7c3aed; color: #fff; }
+
+  /* Result */
+  .result-box {
+    margin-top: 16px;
+    display: none;
+  }
+  .result-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 5px;
+    margin-top: 12px;
+  }
+  .result-label:first-child { margin-top: 0; }
+
+  .prompt-text {
+    background: #f8f8f8;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: monospace;
+    font-size: 0.78rem;
+    line-height: 1.7;
+    color: #555;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 280px;
+    overflow-y: auto;
+  }
+
+  .answer-text {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: #1e40af;
+  }
+  .answer-text.green  { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+  .answer-text.orange { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+  .answer-text.purple { background: #faf5ff; border-color: #e9d5ff; color: #6b21a8; }
+
+  /* Stream */
+  .stream-box {
+    background: #1e1e1e;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-family: monospace;
+    font-size: 0.82rem;
+    color: #d4d4d4;
+    min-height: 60px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .cursor {
+    display: inline-block;
+    width: 8px;
+    height: 14px;
+    background: #d4d4d4;
+    animation: blink 0.8s step-end infinite;
+    vertical-align: middle;
+    margin-left: 2px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* Batch */
+  .batch-grid { display: flex; flex-direction: column; gap: 10px; }
+  .batch-item {
+    background: #fafafa;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    padding: 12px 14px;
+  }
+  .batch-q { font-size: 0.78rem; color: #888; margin-bottom: 5px; }
+  .batch-a { font-size: 0.875rem; color: #222; font-weight: 500; }
+  .batch-time {
+    font-size: 0.75rem;
+    color: #16a34a;
+    font-weight: 600;
+    margin-top: 8px;
+    text-align: right;
+  }
+
+  /* Badge */
+  .badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-family: monospace;
+  }
+  .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+  .badge-green  { background: #dcfce7; color: #15803d; }
+  .badge-orange { background: #ffedd5; color: #c2410c; }
+  .badge-purple { background: #ede9fe; color: #6d28d9; }
+
+  .loading { font-size: 0.82rem; color: #888; margin-top: 8px; }
+  .error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 10px 14px; font-size: 0.82rem; color: #dc2626; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LangChain.js Prompt 실습</h1>
+  <span>@langchain/core/prompts</span>
+</header>
+
+<nav>
+  <button class="tab active" onclick="switchTab(0)">1. FewShotPromptTemplate</button>
+  <button class="tab" onclick="switchTab(1)">2. PartialPromptTemplate</button>
+  <button class="tab" onclick="switchTab(2)">3. Stream</button>
+  <button class="tab" onclick="switchTab(3)">4. Batch</button>
+</nav>
+
+<main>
+
+  <!-- ① FewShot -->
+  <div class="panel active" id="tab0">
+    <div class="card">
+      <h2>FewShotPromptTemplate <span class="badge badge-blue">few-shot</span></h2>
+      <div class="desc">
+        6개의 예시 Q&A를 프롬프트에 포함시켜 LLM이 동일한 형식으로 답변하도록 유도합니다.<br>
+        <code style="font-size:0.75rem;color:#555">examples → examplePrompt → FewShotPromptTemplate → pipe(llm)</code>
+      </div>
+      <label>질문 입력</label>
+      <input type="text" id="fs-input" value="화성의 표면이 붉은 이유는 무엇인가요?" />
+      <button class="btn btn-blue" onclick="runFewShot()" id="fs-btn">▶ 실행</button>
+
+      <div class="result-box" id="fs-result">
+        <div class="result-label">생성된 Few-shot Prompt</div>
+        <div class="prompt-text" id="fs-prompt"></div>
+        <div class="result-label">LLM 답변</div>
+        <div class="answer-text" id="fs-answer"></div>
+      </div>
+      <div class="error" id="fs-error" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ② Partial -->
+  <div class="panel" id="tab1">
+    <div class="card">
+      <h2>PartialPromptTemplate <span class="badge badge-green">partial</span></h2>
+      <div class="desc">
+        <code>prompt.partial({ season: getCurrentSeason() })</code>로 계절 변수를 미리 바인딩합니다.<br>
+        나머지 변수 <code>{phenomenon}</code>만 나중에 입력하면 됩니다.
+      </div>
+      <label>현상 입력</label>
+      <input type="text" id="partial-input" value="꽃가루 증가" />
+      <button class="btn btn-green" onclick="runPartial()" id="partial-btn">▶ 실행</button>
+
+      <div class="result-box" id="partial-result">
+        <div class="result-label">현재 계절 (자동 감지)</div>
+        <div class="answer-text green" id="partial-season" style="font-weight:700;font-size:1rem"></div>
+        <div class="result-label">Partial 적용 후 프롬프트</div>
+        <div class="prompt-text" id="partial-prompt"></div>
+        <div class="result-label">LLM 답변</div>
+        <div class="answer-text green" id="partial-answer"></div>
+      </div>
+      <div class="error" id="partial-error" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- ③ Stream -->
+  <div class="panel" id="tab2">
+    <div class="card">
+      <h2>Stream <span class="badge badge-orange">stream</span></h2>
+      <div class="desc">
+        <code>chain.stream({ input })</code>으로 토큰을 실시간으로 수신합니다.<br>
+        Server-Sent Events(SSE)를 통해 브라우저에 스트리밍됩니다.
+      </div>
+      <label>질문 입력</label>
+      <input type="text" id="stream-input" value="블랙홀이란 무엇인가요?" />
+      <button class="btn btn-orange" onclick="runStream()" id="stream-btn">▶ 스트리밍 시작</button>
+
+      <div class="result-box" id="stream-result" style="display:block;margin-top:16px">
+        <div class="result-label">실시간 응답</div>
+        <div class="stream-box" id="stream-output"><span style="color:#666;font-family:sans-serif;font-size:0.8rem">실행하면 여기에 스트리밍됩니다...</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ Batch -->
+  <div class="panel" id="tab3">
+    <div class="card">
+      <h2>Batch <span class="badge badge-purple">batch</span></h2>
+      <div class="desc">
+        <code>chain.batch([...])</code>로 여러 질문을 병렬로 처리합니다.<br>
+        아래 3개의 질문이 동시에 전송되고 처리 시간을 확인할 수 있습니다.
+      </div>
+
+      <div style="background:#fafafa;border:1px solid #e5e5e5;border-radius:6px;padding:14px;margin-bottom:16px">
+        <div style="font-size:0.75rem;color:#888;margin-bottom:8px;font-weight:600">병렬 처리할 질문 목록</div>
+        <div style="font-size:0.85rem;color:#444;line-height:2">
+          1. 태양계에서 가장 큰 행성은?<br>
+          2. 물의 화학식은?<br>
+          3. 빛의 속도는 얼마인가요?
+        </div>
+      </div>
+
+      <button class="btn btn-purple" onclick="runBatch()" id="batch-btn">▶ Batch 실행</button>
+
+      <div class="result-box" id="batch-result">
+        <div class="result-label">Batch 결과</div>
+        <div class="batch-grid" id="batch-grid"></div>
+      </div>
+      <div class="error" id="batch-error" style="display:none"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+function switchTab(idx) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+  document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('active', i === idx));
+}
+
+// ── FewShot ───────────────────────────────────────
+async function runFewShot() {
+  const input = document.getElementById('fs-input').value.trim();
+  if (!input) return;
+  const btn = document.getElementById('fs-btn');
+  btn.disabled = true; btn.textContent = '처리 중...';
+  document.getElementById('fs-error').style.display = 'none';
+  document.getElementById('fs-result').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/fewshot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    document.getElementById('fs-prompt').textContent = d.prompt;
+    document.getElementById('fs-answer').textContent = d.answer;
+    document.getElementById('fs-result').style.display = 'block';
+  } catch (e) {
+    const el = document.getElementById('fs-error');
+    el.textContent = '❌ ' + e.message;
+    el.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ 실행';
+  }
+}
+
+// ── Partial ───────────────────────────────────────
+async function runPartial() {
+  const phenomenon = document.getElementById('partial-input').value.trim();
+  if (!phenomenon) return;
+  const btn = document.getElementById('partial-btn');
+  btn.disabled = true; btn.textContent = '처리 중...';
+  document.getElementById('partial-error').style.display = 'none';
+  document.getElementById('partial-result').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/partial', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phenomenon }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    document.getElementById('partial-season').textContent = `현재 계절: ${d.season}`;
+    document.getElementById('partial-prompt').textContent = d.prompt;
+    document.getElementById('partial-answer').textContent = d.answer;
+    document.getElementById('partial-result').style.display = 'block';
+  } catch (e) {
+    const el = document.getElementById('partial-error');
+    el.textContent = '❌ ' + e.message;
+    el.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ 실행';
+  }
+}
+
+// ── Stream ────────────────────────────────────────
+async function runStream() {
+  const input = document.getElementById('stream-input').value.trim();
+  if (!input) return;
+  const btn = document.getElementById('stream-btn');
+  btn.disabled = true; btn.textContent = '스트리밍 중...';
+  const output = document.getElementById('stream-output');
+  output.innerHTML = '<span class="cursor"></span>';
+
+  try {
+    const es = new EventSource(`/api/stream?input=${encodeURIComponent(input)}`);
+    let text = '';
+
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.done) {
+        es.close();
+        output.textContent = text;
+        btn.disabled = false; btn.textContent = '▶ 스트리밍 시작';
+        return;
+      }
+      if (data.error) {
+        es.close();
+        output.textContent = '오류: ' + data.error;
+        btn.disabled = false; btn.textContent = '▶ 스트리밍 시작';
+        return;
+      }
+      text += data.text;
+      output.innerHTML = text + '<span class="cursor"></span>';
+    };
+
+    es.onerror = () => {
+      es.close();
+      btn.disabled = false; btn.textContent = '▶ 스트리밍 시작';
+    };
+  } catch (e) {
+    output.textContent = '오류: ' + e.message;
+    btn.disabled = false; btn.textContent = '▶ 스트리밍 시작';
+  }
+}
+
+// ── Batch ─────────────────────────────────────────
+async function runBatch() {
+  const btn = document.getElementById('batch-btn');
+  btn.disabled = true; btn.textContent = '처리 중...';
+  document.getElementById('batch-error').style.display = 'none';
+  document.getElementById('batch-result').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/batch', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    const grid = document.getElementById('batch-grid');
+    grid.innerHTML = d.results.map((r, i) => `
+      <div class="batch-item">
+        <div class="batch-q">Q${i + 1}. ${r.question}</div>
+        <div class="batch-a">${r.answer}</div>
+      </div>`).join('');
+    grid.innerHTML += `<div class="batch-time">⏱ 총 처리 시간: ${d.elapsed}ms (${d.results.length}개 병렬)</div>`;
+    document.getElementById('batch-result').style.display = 'block';
+  } catch (e) {
+    const el = document.getElementById('batch-error');
+    el.textContent = '❌ ' + e.message;
+    el.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ Batch 실행';
+  }
+}
+
+// Enter key
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const id = document.activeElement?.id;
+  if (id === 'fs-input') runFewShot();
+  else if (id === 'partial-input') runPartial();
+  else if (id === 'stream-input') runStream();
+});
+</script>
+</body>
+</html>

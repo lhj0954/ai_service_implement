@@ -2,6 +2,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 
 load_dotenv()
 
@@ -21,7 +22,13 @@ def add_numbers(a: int, b: int) -> int:
 
 tools = [get_weather, add_numbers]
 
-llm = ChatOpenAI(model = "gpt-4o", temperature = 0)
+llm = ChatAnthropic(
+model="claude-haiku-4-5-20251001",
+temperature=0,
+max_tokens=200,
+api_key=ANTHROPIC_API_KEY
+)
+
 llm_with_tools = llm.bind_tools(tools)
 
 messages = [HumanMessage(content = "서울 날씨 알려줘")]
