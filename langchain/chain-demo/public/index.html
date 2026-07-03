@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LangChain Runnable 실습</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    background: #e2e6ef;
+    color: #1e2235;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: #fff;
+    border-bottom: 1px solid #c8cedd;
+    padding: 13px 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  header h1 { font-size: 1rem; font-weight: 700; }
+  .pkg {
+    font-family: monospace;
+    font-size: 0.7rem;
+    background: #e2e6ef;
+    border: 1px solid #c8cedd;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #556;
+  }
+
+  /* ── Nav ── */
+  nav {
+    background: #fff;
+    border-bottom: 1px solid #c8cedd;
+    display: flex;
+    padding: 0 32px;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 11px 18px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #778;
+    border-bottom: 2px solid transparent;
+    position: relative;
+    bottom: -1px;
+    white-space: nowrap;
+    font-family: inherit;
+    transition: color 0.15s;
+  }
+  .tab:hover { color: #334; }
+  .tab.active { color: #2a4fcc; border-bottom-color: #2a4fcc; font-weight: 700; }
+
+  /* ── Page ── */
+  .page { max-width: 940px; margin: 24px auto; padding: 0 18px 48px; }
+
+  .panel { display: none; flex-direction: column; gap: 14px; }
+  .panel.active { display: flex; }
+
+  /* ── Card ── */
+  .card {
+    background: #fff;
+    border: 1px solid #c8cedd;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .card-head {
+    padding: 15px 20px 13px;
+    border-bottom: 1px solid #eaedf4;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .card-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 3px; }
+  .card-desc  { font-size: 0.77rem; color: #778; line-height: 1.55; }
+  .card-body  { padding: 18px 20px; }
+
+  /* badges */
+  .badge {
+    font-family: monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .b1 { background:#dbeafe; color:#1d4ed8; }
+  .b2 { background:#dcfce7; color:#15803d; }
+  .b3 { background:#ffedd5; color:#c2410c; }
+  .b4 { background:#ede9fe; color:#6d28d9; }
+  .b5 { background:#fce7f3; color:#be185d; }
+
+  /* ── Code block ── */
+  .code-block {
+    background: #1a1d2e;
+    border-radius: 7px;
+    padding: 14px 16px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.75rem;
+    line-height: 1.8;
+    color: #c8d0f0;
+    overflow-x: auto;
+    white-space: pre;
+    margin-bottom: 16px;
+  }
+  .kw  { color: #bb9af7; }
+  .fn  { color: #7dcfff; }
+  .str { color: #9ece6a; }
+  .cmt { color: #565f89; font-style: italic; }
+  .cls { color: #e0af68; }
+  .num { color: #ff9e64; }
+
+  /* ── Form ── */
+  .form-row { display: flex; gap: 10px; align-items: flex-end; }
+  .form-group { flex: 1; }
+  label { display: block; font-size: 0.77rem; color: #556; font-weight: 600; margin-bottom: 5px; }
+  input[type="text"], textarea {
+    width: 100%;
+    border: 1px solid #c8cedd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: #1e2235;
+    background: #f6f8fc;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input[type="text"]:focus, textarea:focus {
+    border-color: #2a4fcc;
+    box-shadow: 0 0 0 3px rgba(42,79,204,.1);
+    background: #fff;
+  }
+  textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+
+  /* ── Button ── */
+  .btn {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:hover:not(:disabled) { opacity:.85; transform:translateY(-1px); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+  .btn1 { background:#2a4fcc; color:#fff; }
+  .btn2 { background:#16a34a; color:#fff; }
+  .btn3 { background:#ea580c; color:#fff; }
+  .btn4 { background:#7c3aed; color:#fff; }
+  .btn5 { background:#be185d; color:#fff; }
+
+  /* ── Divider ── */
+  .divider { height:1px; background:#eaedf4; margin:16px 0; }
+
+  /* ── Result ── */
+  .result-wrap { display:none; }
+  .result-wrap.show { display:block; }
+
+  .rlabel {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: #889;
+    margin-bottom: 6px;
+    margin-top: 14px;
+  }
+  .rlabel:first-child { margin-top:0; }
+
+  /* answer box */
+  .ans-box {
+    border-radius: 7px;
+    padding: 13px 15px;
+    font-size: 0.875rem;
+    line-height: 1.7;
+    font-weight: 500;
+  }
+  .ans1 { background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; }
+  .ans2 { background:#f0fdf4; border:1px solid #bbf7d0; color:#14532d; }
+  .ans3 { background:#fff7ed; border:1px solid #fed7aa; color:#7c2d12; }
+  .ans4 { background:#faf5ff; border:1px solid #e9d5ff; color:#4c1d95; }
+  .ans5 { background:#fdf2f8; border:1px solid #fbcfe8; color:#831843; }
+
+  /* step flow for Sequence */
+  .step-flow { display:flex; flex-direction:column; gap:0; }
+  .step-item {
+    display:grid;
+    grid-template-columns: 28px 1fr;
+    gap:12px;
+    align-items:start;
+    padding:10px 0;
+    border-bottom:1px solid #eaedf4;
+  }
+  .step-item:last-child { border-bottom:none; }
+  .step-dot {
+    width:28px; height:28px;
+    border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:monospace; font-size:.7rem; font-weight:700;
+    flex-shrink:0;
+    margin-top:1px;
+  }
+  .step-body { }
+  .step-name { font-family:monospace; font-size:.8rem; font-weight:700; margin-bottom:3px; }
+  .step-io   { font-size:.75rem; color:#778; }
+  .arrow-row { text-align:center; color:#bbb; font-size:.85rem; padding:3px 0; }
+
+  /* passthrough fields */
+  .pt-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+    gap:10px;
+  }
+  .pt-field {
+    background:#f6f8fc;
+    border:1px solid #dde1ec;
+    border-radius:7px;
+    padding:11px 13px;
+  }
+  .pt-key  { font-family:monospace; font-size:.7rem; font-weight:700; margin-bottom:4px; }
+  .pt-val  { font-size:.875rem; font-weight:600; word-break:break-word; }
+  .pt-note { font-size:.68rem; color:#aab; margin-top:3px; }
+
+  /* lambda pipeline */
+  .lambda-pipe { display:flex; flex-direction:column; gap:0; }
+  .lp-step {
+    display:grid;
+    grid-template-columns:140px 1fr;
+    gap:0;
+    border-bottom:1px solid #eaedf4;
+  }
+  .lp-step:last-child { border-bottom:none; }
+  .lp-label {
+    font-family:monospace; font-size:.72rem; font-weight:700; color:#ea580c;
+    background:#fff7ed; padding:12px 14px;
+    border-right:1px solid #eaedf4;
+    display:flex; align-items:center;
+  }
+  .lp-val {
+    padding:12px 14px; font-size:.82rem; color:#1e2235;
+    display:flex; align-items:center; word-break:break-word;
+  }
+
+  /* parallel cards */
+  .parallel-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:10px; }
+  .para-card { background:#f6f8fc; border:1px solid #dde1ec; border-radius:8px; padding:13px 14px; }
+  .para-key  { font-family:monospace; font-size:.72rem; font-weight:700; margin-bottom:6px; }
+  .para-val  { font-size:.83rem; color:#334; line-height:1.6; }
+
+  /* branch */
+  .branch-conditions { display:flex; flex-direction:column; gap:6px; margin-bottom:14px; }
+  .branch-cond {
+    display:flex; align-items:center; gap:10px;
+    padding:9px 13px;
+    border-radius:7px;
+    font-size:.82rem;
+    border:1px solid transparent;
+    transition:all .2s;
+  }
+  .branch-cond.matched { border-color:currentColor; font-weight:700; }
+  .bc1 { background:#eff6ff; color:#2a4fcc; }
+  .bc2 { background:#f0fdf4; color:#16a34a; }
+  .bc3 { background:#fff7ed; color:#ea580c; }
+  .bc4 { background:#f5f5f5; color:#666; }
+  .branch-icon { font-size:1rem; flex-shrink:0; }
+  .branch-label { flex:1; }
+  .branch-tick { font-size:.9rem; }
+
+  /* error */
+  .err-box {
+    background:#fef2f2; border:1px solid #fecaca;
+    border-radius:7px; padding:11px 14px;
+    font-size:.8rem; color:#dc2626;
+    display:none; margin-top:12px;
+  }
+
+  /* timing badge */
+  .time-badge {
+    display:inline-block;
+    background:#dcfce7; color:#15803d;
+    font-size:.72rem; font-weight:700;
+    padding:3px 9px; border-radius:20px;
+    font-family:monospace;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LangChain Runnable 실습</h1>
+  <span class="pkg">@langchain/core/runnables</span>
+</header>
+
+<nav>
+  <button class="tab active" onclick="switchTab(0)">1. RunnableSequence</button>
+  <button class="tab" onclick="switchTab(1)">2. RunnablePassthrough</button>
+  <button class="tab" onclick="switchTab(2)">3. RunnableLambda</button>
+  <button class="tab" onclick="switchTab(3)">4. RunnableParallel</button>
+  <button class="tab" onclick="switchTab(4)">5. RunnableBranch</button>
+</nav>
+
+<div class="page">
+
+  <!-- ① RunnableSequence -->
+  <div class="panel active" id="tab0">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">RunnableSequence</div>
+          <div class="card-desc">여러 Runnable을 <strong>순서대로 연결</strong>합니다. <code>pipe()</code>와 동일하지만 배열로 명시적 체인 구성이 가능합니다.</div>
+        </div>
+        <span class="badge b1">RunnableSequence</span>
+      </div>
+      <div class="card-body">
+        <div class="code-block"><span class="kw">const</span> chain = <span class="cls">RunnableSequence</span>.<span class="fn">from</span>([
+  prompt,   <span class="cmt">// Step 1: PromptTemplate  → PromptValue</span>
+  llm,      <span class="cmt">// Step 2: ChatOpenAI      → AIMessage</span>
+  parser,   <span class="cmt">// Step 3: StringParser    → string</span>
+]);
+<span class="kw">const</span> result = <span class="kw">await</span> chain.<span class="fn">invoke</span>({ topic });</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>주제 입력</label>
+            <input type="text" id="seq-input" value="양자컴퓨터" />
+          </div>
+          <button class="btn btn1" id="seq-btn" onclick="runSeq()">▶ 실행</button>
+        </div>
+        <div class="err-box" id="seq-err"></div>
+        <div class="result-wrap" id="seq-result">
+          <div class="divider"></div>
+          <div class="rlabel">실행 흐름</div>
+          <div class="step-flow" id="seq-steps"></div>
+          <div class="rlabel" style="margin-top:14px">최종 출력 (string)</div>
+          <div class="ans-box ans1" id="seq-ans"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② RunnablePassthrough -->
+  <div class="panel" id="tab1">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">RunnablePassthrough</div>
+          <div class="card-desc">입력을 <strong>그대로 통과</strong>시키거나, <code>.assign()</code>으로 기존 객체에 새 키를 추가합니다.</div>
+        </div>
+        <span class="badge b2">RunnablePassthrough</span>
+      </div>
+      <div class="card-body">
+        <div class="code-block"><span class="cmt">// .assign()으로 입력 객체에 새 필드 추가</span>
+<span class="cls">RunnablePassthrough</span>.<span class="fn">assign</span>({
+  question_length: <span class="cls">RunnableLambda</span>.<span class="fn">from</span>((i) => i.question.<span class="fn">length</span>),
+  uppercased:      <span class="cls">RunnableLambda</span>.<span class="fn">from</span>((i) => i.question.<span class="fn">toUpperCase</span>()),
+})
+<span class="cmt">// 입력: { question }  →  출력: { question, question_length, uppercased }</span></div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>질문 입력</label>
+            <input type="text" id="pt-input" value="한국의 수도는?" />
+          </div>
+          <button class="btn btn2" id="pt-btn" onclick="runPassthrough()">▶ 실행</button>
+        </div>
+        <div class="err-box" id="pt-err"></div>
+        <div class="result-wrap" id="pt-result">
+          <div class="divider"></div>
+          <div class="rlabel">assign() 결과 — 입력 객체에 추가된 필드</div>
+          <div class="pt-grid" id="pt-fields"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ RunnableLambda -->
+  <div class="panel" id="tab2">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">RunnableLambda</div>
+          <div class="card-desc">일반 <strong>JS 함수를 Runnable로 래핑</strong>해 체인에 연결합니다. 동기/비동기 함수 모두 지원합니다.</div>
+        </div>
+        <span class="badge b3">RunnableLambda</span>
+      </div>
+      <div class="card-body">
+        <div class="code-block"><span class="kw">const</span> step1 = <span class="cls">RunnableLambda</span>.<span class="fn">from</span>((input) => ({
+  original: input.text,
+  cleaned:  input.text.<span class="fn">trim</span>().<span class="fn">replace</span>(<span class="str">/\s+/g</span>, <span class="str">" "</span>),
+}));
+<span class="kw">const</span> step2 = <span class="cls">RunnableLambda</span>.<span class="fn">from</span>((input) => ({
+  ...input,
+  char_count: input.cleaned.<span class="fn">length</span>,
+  word_count: input.cleaned.<span class="fn">split</span>(<span class="str">" "</span>).<span class="fn">length</span>,
+}));
+<span class="kw">const</span> chain = <span class="cls">RunnableSequence</span>.<span class="fn">from</span>([step1, step2, step3]);</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>텍스트 입력</label>
+            <input type="text" id="lm-input" value="LangChain은 LLM 애플리케이션 개발 프레임워크입니다." />
+          </div>
+          <button class="btn btn3" id="lm-btn" onclick="runLambda()">▶ 실행</button>
+        </div>
+        <div class="err-box" id="lm-err"></div>
+        <div class="result-wrap" id="lm-result">
+          <div class="divider"></div>
+          <div class="rlabel">Lambda 파이프라인 처리 결과</div>
+          <div class="lambda-pipe" id="lm-pipe"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ RunnableParallel -->
+  <div class="panel" id="tab3">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">RunnableParallel</div>
+          <div class="card-desc">동일한 입력을 여러 체인에 <strong>동시에 병렬 실행</strong>합니다. 결과는 키-값 객체로 합쳐집니다.</div>
+        </div>
+        <span class="badge b4">RunnableParallel</span>
+      </div>
+      <div class="card-body">
+        <div class="code-block"><span class="kw">const</span> parallelChain = <span class="cls">RunnableParallel</span>.<span class="fn">from</span>({
+  definition: makeChain(<span class="str">"{topic}을(를) 한 문장으로 정의해주세요."</span>),
+  example:    makeChain(<span class="str">"{topic}의 실생활 적용 예시를 한 가지만 알려주세요."</span>),
+  future:     makeChain(<span class="str">"{topic}의 미래 전망을 한 문장으로 말해주세요."</span>),
+});
+<span class="cmt">// 3개 체인이 동시에 실행 → { definition, example, future }</span>
+<span class="kw">const</span> result = <span class="kw">await</span> parallelChain.<span class="fn">invoke</span>({ topic });</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>주제 입력</label>
+            <input type="text" id="par-input" value="인공지능" />
+          </div>
+          <button class="btn btn4" id="par-btn" onclick="runParallel()">▶ 실행</button>
+        </div>
+        <div class="err-box" id="par-err"></div>
+        <div class="result-wrap" id="par-result">
+          <div class="divider"></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="rlabel" style="margin:0">병렬 실행 결과 (3개 체인 동시 실행)</div>
+            <span class="time-badge" id="par-time"></span>
+          </div>
+          <div class="parallel-grid" id="par-cards"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ RunnableBranch -->
+  <div class="panel" id="tab4">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">RunnableBranch</div>
+          <div class="card-desc">조건 함수에 따라 <strong>다른 체인을 실행</strong>합니다. if/else 분기 처리에 사용합니다.</div>
+        </div>
+        <span class="badge b5">RunnableBranch</span>
+      </div>
+      <div class="card-body">
+        <div class="code-block"><span class="kw">const</span> branch = <span class="cls">RunnableBranch</span>.<span class="fn">from</span>([
+  [(i) => <span class="str">/코딩|코드/</span>.<span class="fn">test</span>(i.category), codingChain],
+  [(i) => <span class="str">/수학/</span>.<span class="fn">test</span>(i.category),  mathChain],
+  [(i) => <span class="str">/과학/</span>.<span class="fn">test</span>(i.category),  scienceChain],
+  defaultChain,  <span class="cmt">// 기본값 (어떤 조건도 미충족 시)</span>
+]);
+<span class="cmt">// Step 1: 분류 체인으로 카테고리 판단</span>
+<span class="cmt">// Step 2: 카테고리에 맞는 체인 실행</span></div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>질문 입력</label>
+            <textarea id="br-input">파이썬으로 피보나치 수열을 구현하는 방법을 알려주세요.</textarea>
+          </div>
+        </div>
+        <button class="btn btn5" id="br-btn" onclick="runBranch()" style="width:100%;margin-top:0">▶ 실행</button>
+        <div class="err-box" id="br-err"></div>
+        <div class="result-wrap" id="br-result">
+          <div class="divider"></div>
+          <div class="rlabel">분류 결과 & 분기 선택</div>
+          <div class="branch-conditions" id="br-conds"></div>
+          <div class="rlabel">선택된 체인의 답변</div>
+          <div class="ans-box ans5" id="br-ans"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Tab ──────────────────────────────────────────
+function switchTab(idx) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  document.querySelectorAll('.panel').forEach((p,i) => p.classList.toggle('active', i===idx));
+}
+
+// ── helpers ──────────────────────────────────────
+function setBtn(id, loading) {
+  const b = document.getElementById(id);
+  b.disabled = loading;
+  b.textContent = loading ? '처리 중...' : '▶ 실행';
+}
+function showErr(id, msg) {
+  const e = document.getElementById(id);
+  e.textContent = '❌ ' + msg;
+  e.style.display = 'block';
+}
+function hideErr(id) { document.getElementById(id).style.display = 'none'; }
+function show(id) { document.getElementById(id).classList.add('show'); }
+
+// ── 1. RunnableSequence ───────────────────────────
+async function runSeq() {
+  const topic = document.getElementById('seq-input').value.trim();
+  if (!topic) return;
+  hideErr('seq-err'); setBtn('seq-btn', true);
+  document.getElementById('seq-result').classList.remove('show');
+  try {
+    const res = await fetch('/api/sequence', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ topic }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    const colors = [
+      { dot:'#dbeafe', text:'#1d4ed8' },
+      { dot:'#dcfce7', text:'#15803d' },
+      { dot:'#ffedd5', text:'#c2410c' },
+    ];
+    document.getElementById('seq-steps').innerHTML = d.steps.map((s, i) => `
+      <div class="step-item">
+        <div class="step-dot" style="background:${colors[i].dot};color:${colors[i].text}">${i+1}</div>
+        <div class="step-body">
+          <div class="step-name" style="color:${colors[i].text}">${s.name}</div>
+          <div class="step-io">input: ${s.input}</div>
+          <div class="step-io">output: <strong>${s.output}</strong></div>
+        </div>
+      </div>`).join('');
+
+    document.getElementById('seq-ans').textContent = d.result;
+    show('seq-result');
+  } catch(e) { showErr('seq-err', e.message); }
+  finally { setBtn('seq-btn', false); }
+}
+
+// ── 2. RunnablePassthrough ────────────────────────
+async function runPassthrough() {
+  const question = document.getElementById('pt-input').value.trim();
+  if (!question) return;
+  hideErr('pt-err'); setBtn('pt-btn', true);
+  document.getElementById('pt-result').classList.remove('show');
+  try {
+    const res = await fetch('/api/passthrough', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ question }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+    const r = d.passthrough_result;
+    const defs = [
+      { key:'question',        val: r.question,        note:'원본 입력 (Passthrough로 유지)',       color:'#2a4fcc' },
+      { key:'question_length', val: r.question_length, note:'assign()으로 추가된 필드 — 글자 수',    color:'#16a34a' },
+      { key:'uppercased',      val: r.uppercased,      note:'assign()으로 추가된 필드 — 대문자',     color:'#ea580c' },
+      { key:'answer',          val: r.answer,          note:'assign()으로 추가된 필드 — LLM 답변',   color:'#7c3aed' },
+    ];
+    document.getElementById('pt-fields').innerHTML = defs.map(f => `
+      <div class="pt-field">
+        <div class="pt-key" style="color:${f.color}">${f.key}</div>
+        <div class="pt-val">${f.val}</div>
+        <div class="pt-note">${f.note}</div>
+      </div>`).join('');
+    show('pt-result');
+  } catch(e) { showErr('pt-err', e.message); }
+  finally { setBtn('pt-btn', false); }
+}
+
+// ── 3. RunnableLambda ─────────────────────────────
+async function runLambda() {
+  const text = document.getElementById('lm-input').value.trim();
+  if (!text) return;
+  hideErr('lm-err'); setBtn('lm-btn', true);
+  document.getElementById('lm-result').classList.remove('show');
+  try {
+    const res = await fetch('/api/lambda', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+    const r = d.result;
+    const rows = [
+      { label:'step1 — original',   val: r.original },
+      { label:'step1 — cleaned',    val: r.cleaned },
+      { label:'step2 — char_count', val: r.char_count + '자' },
+      { label:'step2 — word_count', val: r.word_count + '단어' },
+      { label:'step3 — summary',    val: r.summary },
+    ];
+    document.getElementById('lm-pipe').innerHTML = rows.map(row => `
+      <div class="lp-step">
+        <div class="lp-label">${row.label}</div>
+        <div class="lp-val">${row.val}</div>
+      </div>`).join('');
+    show('lm-result');
+  } catch(e) { showErr('lm-err', e.message); }
+  finally { setBtn('lm-btn', false); }
+}
+
+// ── 4. RunnableParallel ───────────────────────────
+async function runParallel() {
+  const topic = document.getElementById('par-input').value.trim();
+  if (!topic) return;
+  hideErr('par-err'); setBtn('par-btn', true);
+  document.getElementById('par-result').classList.remove('show');
+  try {
+    const res = await fetch('/api/parallel', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ topic }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    document.getElementById('par-time').textContent = `⏱ ${d.elapsed}ms`;
+
+    const cards = [
+      { key:'definition', label:'📖 정의', color:'#4f46e5' },
+      { key:'example',    label:'💡 활용 예시', color:'#15803d' },
+      { key:'future',     label:'🔮 미래 전망', color:'#be185d' },
+    ];
+    document.getElementById('par-cards').innerHTML = cards.map(c => `
+      <div class="para-card">
+        <div class="para-key" style="color:${c.color}">${c.label}</div>
+        <div class="para-val">${d.result[c.key]}</div>
+      </div>`).join('');
+    show('par-result');
+  } catch(e) { showErr('par-err', e.message); }
+  finally { setBtn('par-btn', false); }
+}
+
+// ── 5. RunnableBranch ─────────────────────────────
+async function runBranch() {
+  const text = document.getElementById('br-input').value.trim();
+  if (!text) return;
+  hideErr('br-err');
+  const btn = document.getElementById('br-btn');
+  btn.disabled = true; btn.textContent = '처리 중...';
+  document.getElementById('br-result').classList.remove('show');
+  try {
+    const res = await fetch('/api/branch', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    const branches = [
+      { id:'codingChain',  label:'조건: /코딩|코드/ → codingChain',  cls:'bc1', icon:'💻' },
+      { id:'mathChain',    label:'조건: /수학/ → mathChain',          cls:'bc2', icon:'📐' },
+      { id:'scienceChain', label:'조건: /과학/ → scienceChain',       cls:'bc3', icon:'🔬' },
+      { id:'defaultChain', label:'기본값 (조건 미충족) → defaultChain', cls:'bc4', icon:'📝' },
+    ];
+
+    document.getElementById('br-conds').innerHTML = `
+      <div style="font-size:.82rem;margin-bottom:8px">
+        분류 결과: <strong style="color:#be185d">"${d.category}"</strong>
+        &nbsp;→&nbsp; 선택된 체인: <strong style="color:#be185d">${d.matched_branch}</strong>
+      </div>
+      ${branches.map(b => `
+        <div class="branch-cond ${b.cls} ${b.id === d.matched_branch ? 'matched' : ''}">
+          <span class="branch-icon">${b.icon}</span>
+          <span class="branch-label">${b.label}</span>
+          <span class="branch-tick">${b.id === d.matched_branch ? '✅' : ''}</span>
+        </div>`).join('')}`;
+
+    document.getElementById('br-ans').textContent = d.answer;
+    show('br-result');
+  } catch(e) { showErr('br-err', e.message); }
+  finally { btn.disabled=false; btn.textContent='▶ 실행'; }
+}
+
+// Enter key
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.shiftKey) return;
+  const id = document.activeElement?.id;
+  if (id==='seq-input') runSeq();
+  else if (id==='pt-input') runPassthrough();
+  else if (id==='lm-input') runLambda();
+  else if (id==='par-input') runParallel();
+});
+</script>
+</body>
+</html>

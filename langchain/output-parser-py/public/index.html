@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LangChain Output Parser 실습</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    background: #e2e6ef;
+    color: #222;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: #fff;
+    border-bottom: 1px solid #cdd2de;
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  header h1 { font-size: 1rem; font-weight: 700; color: #1a1a2e; }
+  header .pkg {
+    font-family: monospace;
+    font-size: 0.72rem;
+    background: #e2e6ef;
+    border: 1px solid #cdd2de;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #555;
+  }
+
+  /* ── Tab Nav ── */
+  nav {
+    background: #fff;
+    border-bottom: 1px solid #cdd2de;
+    display: flex;
+    padding: 0 32px;
+    gap: 2px;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 11px 22px;
+    font-size: 0.83rem;
+    font-weight: 500;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #778;
+    border-bottom: 2px solid transparent;
+    position: relative;
+    bottom: -1px;
+    transition: color 0.15s;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  .tab:hover { color: #334; }
+  .tab.active { color: #2a4fcc; border-bottom-color: #2a4fcc; font-weight: 700; }
+
+  /* ── Layout ── */
+  .page { max-width: 960px; margin: 28px auto; padding: 0 20px 40px; }
+
+  .panel { display: none; flex-direction: column; gap: 16px; }
+  .panel.active { display: flex; }
+
+  /* ── Cards ── */
+  .card {
+    background: #fff;
+    border: 1px solid #cdd2de;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .card-head {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid #e8eaf0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .card-title { font-size: 0.92rem; font-weight: 700; color: #1a1a2e; margin-bottom: 3px; }
+  .card-desc  { font-size: 0.78rem; color: #778; line-height: 1.5; }
+  .card-body  { padding: 18px 20px; }
+
+  /* ── Class badge ── */
+  .cls-badge {
+    font-family: monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 5px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .cls-blue   { background: #dbeafe; color: #1d4ed8; }
+  .cls-green  { background: #dcfce7; color: #15803d; }
+  .cls-orange { background: #ffedd5; color: #c2410c; }
+  .cls-purple { background: #ede9fe; color: #6d28d9; }
+
+  /* ── Code block ── */
+  .code-block {
+    background: #1e1e2e;
+    border-radius: 7px;
+    padding: 14px 16px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.76rem;
+    line-height: 1.75;
+    color: #cdd6f4;
+    overflow-x: auto;
+    white-space: pre;
+    margin-bottom: 16px;
+  }
+  .kw   { color: #cba6f7; }
+  .fn   { color: #89b4fa; }
+  .str  { color: #a6e3a1; }
+  .cmt  { color: #585b70; font-style: italic; }
+  .cls  { color: #f9e2af; }
+
+  /* ── Form ── */
+  .form-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 0; }
+  .form-group { flex: 1; }
+  label { display: block; font-size: 0.78rem; color: #556; font-weight: 600; margin-bottom: 5px; }
+  input[type="text"] {
+    width: 100%;
+    border: 1px solid #cdd2de;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    color: #222;
+    background: #f7f8fc;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input[type="text"]:focus {
+    border-color: #2a4fcc;
+    box-shadow: 0 0 0 3px rgba(42,79,204,0.1);
+    background: #fff;
+  }
+
+  /* ── Run Button ── */
+  .btn {
+    padding: 8px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { opacity: 0.85; transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn-blue   { background: #2a4fcc; color: #fff; }
+  .btn-green  { background: #16a34a; color: #fff; }
+  .btn-orange { background: #ea580c; color: #fff; }
+  .btn-purple { background: #7c3aed; color: #fff; }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px;
+    background: #e8eaf0;
+    margin: 16px 0;
+  }
+
+  /* ── Result section ── */
+  .result-wrap { display: none; }
+  .result-wrap.show { display: block; }
+
+  .result-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: #889;
+    margin-bottom: 6px;
+    margin-top: 14px;
+  }
+  .result-label:first-child { margin-top: 0; }
+
+  /* Before/After comparison */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 640px) { .compare-grid { grid-template-columns: 1fr; } }
+
+  .compare-box {
+    border-radius: 7px;
+    padding: 12px 14px;
+    font-size: 0.8rem;
+    line-height: 1.6;
+  }
+  .compare-box.before {
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    color: #555;
+  }
+  .compare-box.after {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+  }
+  .compare-tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 4px;
+    margin-bottom: 7px;
+    font-family: monospace;
+  }
+  .tag-before { background: #e5e5e5; color: #555; }
+  .tag-after  { background: #bbf7d0; color: #15803d; }
+  .compare-content { font-family: monospace; white-space: pre-wrap; word-break: break-all; }
+
+  /* JSON tree */
+  .json-tree {
+    background: #f7f8fc;
+    border: 1px solid #e0e4ef;
+    border-radius: 7px;
+    padding: 14px 16px;
+    font-family: monospace;
+    font-size: 0.78rem;
+    line-height: 1.8;
+    overflow-x: auto;
+  }
+  .jk { color: #2a4fcc; font-weight: 600; }
+  .jv-str { color: #16a34a; }
+  .jv-num { color: #ea580c; }
+  .jv-bool { color: #7c3aed; }
+  .jv-null { color: #889; }
+
+  /* Structured fields */
+  .struct-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+  }
+  .struct-field {
+    background: #f7f8fc;
+    border: 1px solid #e0e4ef;
+    border-radius: 7px;
+    padding: 10px 13px;
+  }
+  .struct-key {
+    font-family: monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #7c3aed;
+    margin-bottom: 4px;
+  }
+  .struct-val {
+    font-size: 0.875rem;
+    color: #1a1a2e;
+    font-weight: 500;
+    word-break: break-word;
+  }
+  .struct-type {
+    font-family: monospace;
+    font-size: 0.65rem;
+    color: #aab;
+    margin-top: 3px;
+  }
+
+  /* Tag list */
+  .tag-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }
+  .tag-item {
+    background: #ede9fe;
+    color: #5b21b6;
+    border-radius: 5px;
+    padding: 3px 10px;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+
+  /* CSV chips */
+  .csv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #e0e7ff;
+    border: 1px solid #c7d2fe;
+    color: #3730a3;
+    border-radius: 20px;
+    padding: 5px 13px;
+    font-size: 0.83rem;
+    font-weight: 500;
+  }
+  .chip-num {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #4f46e5;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Format instructions */
+  .fmt-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 7px;
+    padding: 11px 14px;
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #92400e;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* Error */
+  .err-box {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 7px;
+    padding: 11px 14px;
+    font-size: 0.82rem;
+    color: #dc2626;
+    display: none;
+    margin-top: 12px;
+  }
+
+  /* Rating bar */
+  .rating-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 2px;
+  }
+  .rating-track {
+    flex: 1;
+    height: 8px;
+    background: #e8eaf0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .rating-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f59e0b, #ea580c);
+    border-radius: 4px;
+    transition: width 0.6s ease;
+  }
+  .rating-num { font-size: 0.82rem; font-weight: 700; color: #ea580c; min-width: 28px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LangChain Output Parser 실습</h1>
+  <span class="pkg">@langchain/core/output_parsers</span>
+</header>
+
+<nav>
+  <button class="tab active" onclick="switchTab(0)">1. StringOutputParser</button>
+  <button class="tab" onclick="switchTab(1)">2. JsonOutputParser</button>
+  <button class="tab" onclick="switchTab(2)">3. StructuredOutputParser</button>
+  <button class="tab" onclick="switchTab(3)">4. CommaSeparatedListOutputParser</button>
+</nav>
+
+<div class="page">
+
+  <!-- ①  StringOutputParser -->
+  <div class="panel active" id="tab0">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">StringOutputParser</div>
+          <div class="card-desc">AIMessage 객체에서 <code>.content</code> 문자열만 추출합니다. 가장 기본적인 파서입니다.</div>
+        </div>
+        <span class="cls-badge cls-blue">StringOutputParser</span>
+      </div>
+      <div class="card-body">
+
+        <div class="code-block"><span class="kw">import</span> { <span class="cls">StringOutputParser</span> } <span class="kw">from</span> <span class="str">"@langchain/core/output_parsers"</span>;
+
+<span class="kw">const</span> parser = <span class="kw">new</span> <span class="cls">StringOutputParser</span>();
+<span class="kw">const</span> chain  = prompt.<span class="fn">pipe</span>(llm).<span class="fn">pipe</span>(parser);
+<span class="kw">const</span> result = <span class="kw">await</span> chain.<span class="fn">invoke</span>({ input });
+<span class="cmt">// AIMessage  →  string</span></div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>질문 입력</label>
+            <input type="text" id="s-input" value="판교는 어떤 도시인가요?" />
+          </div>
+          <button class="btn btn-blue" id="s-btn" onclick="runString()">▶ 실행</button>
+        </div>
+
+        <div class="err-box" id="s-err"></div>
+
+        <div class="result-wrap" id="s-result">
+          <div class="divider"></div>
+          <div class="result-label">파서 적용 전 / 후 비교</div>
+          <div class="compare-grid">
+            <div class="compare-box before">
+              <div class="compare-tag tag-before">before — AIMessage</div>
+              <div style="margin-bottom:6px">
+                <span style="font-size:0.72rem;color:#888">type: </span>
+                <span class="compare-content" id="s-raw-type" style="color:#c2410c;font-weight:700"></span>
+              </div>
+              <div style="font-size:0.72rem;color:#888;margin-bottom:4px">keys:</div>
+              <div class="compare-content" id="s-raw-keys" style="font-size:0.75rem;color:#555"></div>
+            </div>
+            <div class="compare-box after">
+              <div class="compare-tag tag-after">after — string</div>
+              <div style="margin-bottom:6px">
+                <span style="font-size:0.72rem;color:#2d6a4f">type: </span>
+                <span class="compare-content" id="s-parsed-type" style="color:#15803d;font-weight:700"></span>
+              </div>
+              <div style="font-size:0.72rem;color:#2d6a4f;margin-bottom:4px">value:</div>
+              <div class="compare-content" id="s-parsed-val" style="color:#166534;font-size:0.82rem"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ②  JsonOutputParser -->
+  <div class="panel" id="tab1">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">JsonOutputParser</div>
+          <div class="card-desc">LLM의 JSON 텍스트 응답을 파싱해 JavaScript 객체로 변환합니다.</div>
+        </div>
+        <span class="cls-badge cls-green">JsonOutputParser</span>
+      </div>
+      <div class="card-body">
+
+        <div class="code-block"><span class="kw">import</span> { <span class="cls">JsonOutputParser</span> } <span class="kw">from</span> <span class="str">"@langchain/core/output_parsers"</span>;
+
+<span class="kw">const</span> parser = <span class="kw">new</span> <span class="cls">JsonOutputParser</span>();
+<span class="kw">const</span> chain  = prompt.<span class="fn">pipe</span>(llm).<span class="fn">pipe</span>(parser);
+<span class="kw">const</span> result = <span class="kw">await</span> chain.<span class="fn">invoke</span>({ topic });
+<span class="cmt">// string(JSON)  →  JavaScript object</span></div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>주제 입력</label>
+            <input type="text" id="j-input" value="서울" />
+          </div>
+          <button class="btn btn-green" id="j-btn" onclick="runJson()">▶ 실행</button>
+        </div>
+
+        <div class="err-box" id="j-err"></div>
+
+        <div class="result-wrap" id="j-result">
+          <div class="divider"></div>
+          <div class="result-label">파싱된 JavaScript 객체</div>
+          <div class="json-tree" id="j-tree"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③  StructuredOutputParser -->
+  <div class="panel" id="tab2">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">StructuredOutputParser</div>
+          <div class="card-desc">Zod 스키마로 출력 구조를 정의하고, <code>getFormatInstructions()</code>로 LLM에게 형식을 안내합니다.</div>
+        </div>
+        <span class="cls-badge cls-orange">StructuredOutputParser</span>
+      </div>
+      <div class="card-body">
+
+        <div class="code-block"><span class="kw">import</span> { <span class="cls">StructuredOutputParser</span> } <span class="kw">from</span> <span class="str">"@langchain/core/output_parsers"</span>;
+
+<span class="kw">const</span> parser = <span class="cls">StructuredOutputParser</span>.<span class="fn">fromZodSchema</span>(
+  z.<span class="fn">object</span>({
+    title:    z.<span class="fn">string</span>().<span class="fn">describe</span>(<span class="str">"영화 제목"</span>),
+    director: z.<span class="fn">string</span>().<span class="fn">describe</span>(<span class="str">"감독 이름"</span>),
+    year:     z.<span class="fn">number</span>().<span class="fn">describe</span>(<span class="str">"개봉 연도"</span>),
+    genre:    z.<span class="fn">array</span>(z.<span class="fn">string</span>()).<span class="fn">describe</span>(<span class="str">"장르 목록"</span>),
+    rating:   z.<span class="fn">number</span>().<span class="fn">min</span>(<span class="str">0</span>).<span class="fn">max</span>(<span class="str">10</span>).<span class="fn">describe</span>(<span class="str">"평점"</span>),
+    summary:  z.<span class="fn">string</span>().<span class="fn">describe</span>(<span class="str">"줄거리 요약"</span>),
+  })
+);
+<span class="kw">const</span> fmt = parser.<span class="fn">getFormatInstructions</span>(); <span class="cmt">// LLM 지시문 자동 생성</span>
+<span class="kw">const</span> chain = prompt.<span class="fn">pipe</span>(llm).<span class="fn">pipe</span>(parser);</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>영화 제목</label>
+            <input type="text" id="st-input" value="인터스텔라" />
+          </div>
+          <button class="btn btn-orange" id="st-btn" onclick="runStructured()">▶ 실행</button>
+        </div>
+
+        <div class="err-box" id="st-err"></div>
+
+        <div class="result-wrap" id="st-result">
+          <div class="divider"></div>
+          <div class="result-label">getFormatInstructions() — LLM에 전달되는 지시문</div>
+          <div class="fmt-box" id="st-fmt"></div>
+          <div class="result-label" style="margin-top:14px">파싱 결과 (Zod 스키마 검증 완료)</div>
+          <div class="struct-grid" id="st-fields"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④  CommaSeparatedListOutputParser -->
+  <div class="panel" id="tab3">
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">CommaSeparatedListOutputParser</div>
+          <div class="card-desc">콤마로 구분된 LLM 응답 텍스트를 <code>string[]</code> 배열로 파싱합니다.</div>
+        </div>
+        <span class="cls-badge cls-purple">CommaSeparatedListOutputParser</span>
+      </div>
+      <div class="card-body">
+
+        <div class="code-block"><span class="kw">import</span> { <span class="cls">CommaSeparatedListOutputParser</span> } <span class="kw">from</span> <span class="str">"@langchain/core/output_parsers"</span>;
+
+<span class="kw">const</span> parser = <span class="kw">new</span> <span class="cls">CommaSeparatedListOutputParser</span>();
+<span class="kw">const</span> fmt    = parser.<span class="fn">getFormatInstructions</span>();
+<span class="cmt">// → "Your response should be a list of comma separated values..."</span>
+
+<span class="kw">const</span> chain  = prompt.<span class="fn">pipe</span>(llm).<span class="fn">pipe</span>(parser);
+<span class="kw">const</span> result = <span class="kw">await</span> chain.<span class="fn">invoke</span>({ category, format_instructions: fmt });
+<span class="cmt">// "김치, 비빔밥, 불고기, ..."  →  ["김치", "비빔밥", "불고기", ...]</span></div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>카테고리 입력</label>
+            <input type="text" id="c-input" value="한국 전통 음식" />
+          </div>
+          <button class="btn btn-purple" id="c-btn" onclick="runCsv()">▶ 실행</button>
+        </div>
+
+        <div class="err-box" id="c-err"></div>
+
+        <div class="result-wrap" id="c-result">
+          <div class="divider"></div>
+          <div class="result-label">getFormatInstructions()</div>
+          <div class="fmt-box" id="c-fmt"></div>
+          <div class="result-label" style="margin-top:14px">파싱 결과 — <span id="c-count"></span>개 항목 (<code>string[]</code>)</div>
+          <div class="csv-chips" id="c-chips"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .page -->
+
+<script>
+// ── Tab ──────────────────────────────────────────
+function switchTab(idx) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  document.querySelectorAll('.panel').forEach((p,i) => p.classList.toggle('active', i===idx));
+}
+
+// ── helpers ──────────────────────────────────────
+function setLoading(prefix, loading, label) {
+  const btn = document.getElementById(`${prefix}-btn`);
+  btn.disabled = loading;
+  btn.textContent = loading ? '처리 중...' : label;
+}
+function showErr(prefix, msg) {
+  const el = document.getElementById(`${prefix}-err`);
+  el.textContent = '❌ ' + msg;
+  el.style.display = 'block';
+}
+function hideErr(prefix) {
+  document.getElementById(`${prefix}-err`).style.display = 'none';
+}
+
+// JSON highlighter
+function renderJson(obj, indent=0) {
+  const pad = '  '.repeat(indent);
+  const padC = '  '.repeat(indent+1);
+  if (Array.isArray(obj)) {
+    if (obj.length === 0) return '[]';
+    const items = obj.map(v => `${padC}${renderVal(v, indent+1)}`).join(',\n');
+    return `[\n${items}\n${pad}]`;
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const entries = Object.entries(obj).map(([k,v]) =>
+      `${padC}<span class="jk">"${k}"</span>: ${renderVal(v, indent+1)}`
+    ).join(',\n');
+    return `{\n${entries}\n${pad}}`;
+  }
+  return renderVal(obj, indent);
+}
+function renderVal(v, indent) {
+  if (v === null) return `<span class="jv-null">null</span>`;
+  if (typeof v === 'boolean') return `<span class="jv-bool">${v}</span>`;
+  if (typeof v === 'number') return `<span class="jv-num">${v}</span>`;
+  if (typeof v === 'string') return `<span class="jv-str">"${v}"</span>`;
+  if (Array.isArray(v)) return renderJson(v, indent);
+  return renderJson(v, indent);
+}
+
+// ── 1. StringOutputParser ─────────────────────────
+async function runString() {
+  const input = document.getElementById('s-input').value.trim();
+  if (!input) return;
+  hideErr('s'); setLoading('s', true, '▶ 실행');
+  document.getElementById('s-result').classList.remove('show');
+  try {
+    const res = await fetch('/api/string', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ input }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    document.getElementById('s-raw-type').textContent = d.raw_type;
+    document.getElementById('s-raw-keys').textContent = d.raw_keys.join('\n');
+    document.getElementById('s-parsed-type').textContent = d.parsed_type;
+    document.getElementById('s-parsed-val').textContent = d.parsed_result;
+    document.getElementById('s-result').classList.add('show');
+  } catch(e) { showErr('s', e.message); }
+  finally { setLoading('s', false, '▶ 실행'); }
+}
+
+// ── 2. JsonOutputParser ───────────────────────────
+async function runJson() {
+  const topic = document.getElementById('j-input').value.trim();
+  if (!topic) return;
+  hideErr('j'); setLoading('j', true, '▶ 실행');
+  document.getElementById('j-result').classList.remove('show');
+  try {
+    const res = await fetch('/api/json', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ topic }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    document.getElementById('j-tree').innerHTML = renderJson(d.parsed_result);
+    document.getElementById('j-result').classList.add('show');
+  } catch(e) { showErr('j', e.message); }
+  finally { setLoading('j', false, '▶ 실행'); }
+}
+
+// ── 3. StructuredOutputParser ─────────────────────
+async function runStructured() {
+  const movie = document.getElementById('st-input').value.trim();
+  if (!movie) return;
+  hideErr('st'); setLoading('st', true, '▶ 실행');
+  document.getElementById('st-result').classList.remove('show');
+  try {
+    const res = await fetch('/api/structured', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ movie }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    document.getElementById('st-fmt').textContent = d.format_instructions;
+
+    const r = d.parsed_result;
+    const fieldsEl = document.getElementById('st-fields');
+    fieldsEl.innerHTML = '';
+
+    // title
+    fieldsEl.innerHTML += field('title', r.title, 'string');
+    fieldsEl.innerHTML += field('director', r.director, 'string');
+    fieldsEl.innerHTML += field('year', r.year, 'number');
+
+    // rating with bar
+    fieldsEl.innerHTML += `
+      <div class="struct-field" style="grid-column: span 1">
+        <div class="struct-key">rating</div>
+        <div class="rating-bar">
+          <div class="rating-track"><div class="rating-fill" id="rating-fill" style="width:0%"></div></div>
+          <div class="rating-num">${r.rating}</div>
+        </div>
+        <div class="struct-type">number (0~10)</div>
+      </div>`;
+
+    // genre tags
+    fieldsEl.innerHTML += `
+      <div class="struct-field">
+        <div class="struct-key">genre</div>
+        <div class="tag-list">${r.genre.map(g=>`<span class="tag-item">${g}</span>`).join('')}</div>
+        <div class="struct-type">string[]</div>
+      </div>`;
+
+    // summary spans full width
+    fieldsEl.innerHTML += `
+      <div class="struct-field" style="grid-column: 1 / -1">
+        <div class="struct-key">summary</div>
+        <div class="struct-val">${r.summary}</div>
+        <div class="struct-type">string</div>
+      </div>`;
+
+    document.getElementById('st-result').classList.add('show');
+    // animate bar after paint
+    setTimeout(() => {
+      const fill = document.getElementById('rating-fill');
+      if (fill) fill.style.width = (r.rating / 10 * 100) + '%';
+    }, 80);
+  } catch(e) { showErr('st', e.message); }
+  finally { setLoading('st', false, '▶ 실행'); }
+}
+function field(key, val, type) {
+  return `<div class="struct-field">
+    <div class="struct-key">${key}</div>
+    <div class="struct-val">${val}</div>
+    <div class="struct-type">${type}</div>
+  </div>`;
+}
+
+// ── 4. CommaSeparatedListOutputParser ─────────────
+async function runCsv() {
+  const category = document.getElementById('c-input').value.trim();
+  if (!category) return;
+  hideErr('c'); setLoading('c', true, '▶ 실행');
+  document.getElementById('c-result').classList.remove('show');
+  try {
+    const res = await fetch('/api/csvlist', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ category }),
+    });
+    const d = await res.json();
+    if (!d.success) throw new Error(d.error);
+
+    document.getElementById('c-fmt').textContent = d.format_instructions;
+    document.getElementById('c-count').textContent = d.count;
+    document.getElementById('c-chips').innerHTML = d.parsed_result.map((item, i) => `
+      <div class="chip">
+        <span class="chip-num">${i+1}</span>
+        ${item.trim()}
+      </div>`).join('');
+    document.getElementById('c-result').classList.add('show');
+  } catch(e) { showErr('c', e.message); }
+  finally { setLoading('c', false, '▶ 실행'); }
+}
+
+// Enter key
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const id = document.activeElement?.id;
+  if (id === 's-input') runString();
+  else if (id === 'j-input') runJson();
+  else if (id === 'st-input') runStructured();
+  else if (id === 'c-input') runCsv();
+});
+</script>
+</body>
+</html>
