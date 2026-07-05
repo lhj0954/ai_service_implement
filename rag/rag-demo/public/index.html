@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LangChain RAG 실습</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#e2e6ef;color:#1e2235;min-height:100vh}
+
+  header{background:#fff;border-bottom:1px solid #c8cedd;padding:13px 28px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  header h1{font-size:.98rem;font-weight:700}
+  .pkg{font-family:monospace;font-size:.68rem;background:#e2e6ef;border:1px solid #c8cedd;padding:2px 8px;border-radius:4px;color:#556}
+
+  nav{background:#fff;border-bottom:1px solid #c8cedd;display:flex;padding:0 20px;overflow-x:auto}
+  .tab{padding:10px 16px;font-size:.78rem;font-weight:500;border:none;background:none;cursor:pointer;color:#778;border-bottom:2px solid transparent;position:relative;bottom:-1px;white-space:nowrap;font-family:inherit;transition:color .15s}
+  .tab:hover{color:#334}
+  .tab.active{font-weight:700;border-bottom-color:currentColor}
+  .tab:nth-child(1).active{color:#2a4fcc}
+  .tab:nth-child(2).active{color:#0891b2}
+  .tab:nth-child(3).active{color:#16a34a}
+  .tab:nth-child(4).active{color:#dc2626}
+  .tab:nth-child(5).active{color:#7c3aed}
+
+  .page{max-width:900px;margin:20px auto;padding:0 16px 48px}
+  .panel{display:none;flex-direction:column;gap:13px}
+  .panel.active{display:flex}
+
+  /* Card */
+  .card{background:#fff;border:1px solid #c8cedd;border-radius:10px;overflow:hidden}
+  .card-head{padding:13px 18px 11px;border-bottom:1px solid #eaedf4;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .card-title{font-size:.88rem;font-weight:700;margin-bottom:2px}
+  .card-desc{font-size:.74rem;color:#778;line-height:1.5}
+  .card-body{padding:15px 18px}
+
+  .badge{font-family:monospace;font-size:.67rem;font-weight:700;padding:3px 8px;border-radius:5px;white-space:nowrap;flex-shrink:0}
+  .b1{background:#dbeafe;color:#1d4ed8} .b2{background:#cffafe;color:#0e7490}
+  .b3{background:#dcfce7;color:#15803d} .b4{background:#fee2e2;color:#b91c1c}
+  .b5{background:#ede9fe;color:#6d28d9}
+
+  /* Code */
+  .code-block{background:#1a1d2e;border-radius:7px;padding:12px 14px;font-family:monospace;font-size:.73rem;line-height:1.8;color:#c8d0f0;overflow-x:auto;white-space:pre;margin-bottom:14px}
+  .kw{color:#bb9af7}.fn{color:#7dcfff}.str{color:#9ece6a}.cmt{color:#565f89;font-style:italic}.cls{color:#e0af68}
+
+  /* Form */
+  label{display:block;font-size:.75rem;color:#556;font-weight:600;margin-bottom:4px}
+  input[type="text"],textarea{width:100%;border:1px solid #c8cedd;border-radius:6px;padding:8px 11px;font-size:.83rem;font-family:inherit;color:#1e2235;background:#f6f8fc;outline:none;transition:border-color .15s,box-shadow .15s}
+  input[type="text"]:focus,textarea:focus{border-color:#2a4fcc;box-shadow:0 0 0 3px rgba(42,79,204,.1);background:#fff}
+  textarea{resize:vertical;min-height:56px;line-height:1.5}
+  .form-row{display:flex;gap:9px;align-items:flex-end;margin-bottom:0}
+  .fg{flex:1}
+
+  /* Buttons */
+  .btn{padding:8px 16px;border:none;border-radius:6px;font-size:.81rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:opacity .15s,transform .1s}
+  .btn:hover:not(:disabled){opacity:.84;transform:translateY(-1px)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn1{background:#2a4fcc;color:#fff} .btn2{background:#0891b2;color:#fff}
+  .btn3{background:#16a34a;color:#fff} .btn4{background:#dc2626;color:#fff}
+  .btn5{background:#7c3aed;color:#fff} .btn-red{background:#dc2626;color:#fff}
+  .btn-gray{background:#6b7280;color:#fff}
+
+  .divider{height:1px;background:#eaedf4;margin:13px 0}
+  .rw{display:none}.rw.show{display:block}
+  .rl{font-size:.66rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#889;margin-bottom:5px;margin-top:12px}
+  .rl:first-child{margin-top:0}
+
+  /* Status */
+  .status-row{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:20px}
+  .chip-ok{background:#dcfce7;color:#15803d} .chip-no{background:#fef3c7;color:#92400e}
+  .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .dot-ok{background:#16a34a} .dot-no{background:#f59e0b}
+
+  /* Answer */
+  .ans-box{border-radius:7px;padding:12px 14px;font-size:.875rem;line-height:1.7;font-weight:500}
+  .ans1{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+  .ans2{background:#ecfeff;border:1px solid #a5f3fc;color:#0e7490}
+  .ans3{background:#f0fdf4;border:1px solid #bbf7d0;color:#14532d}
+  .ans4{background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d}
+  .ans5{background:#faf5ff;border:1px solid #e9d5ff;color:#4c1d95}
+
+  /* Source docs */
+  .src-wrap{display:flex;flex-direction:column;gap:6px}
+  .src-card{background:#f6f8fc;border:1px solid #dde1ec;border-radius:6px;padding:9px 12px}
+  .src-meta{font-family:monospace;font-size:.67rem;color:#7c3aed;font-weight:700;margin-bottom:3px}
+  .src-text{font-size:.77rem;color:#445;line-height:1.5}
+
+  /* Upload */
+  .upload-area{border:2px dashed #c8cedd;border-radius:8px;padding:22px 16px;text-align:center;cursor:pointer;transition:all .2s;background:#fafbfd;margin-bottom:12px}
+  .upload-area:hover{border-color:#2a4fcc;background:#eff6ff}
+  .upload-area.has-file{border-color:#16a34a;background:#f0fdf4}
+  .upload-icon{font-size:1.8rem;margin-bottom:6px}
+  .upload-text{font-size:.8rem;color:#778}
+  .upload-name{font-size:.82rem;color:#16a34a;font-weight:600;margin-top:4px}
+
+  /* Info bar */
+  .info-bar{background:#f6f8fc;border:1px solid #dde1ec;border-radius:6px;padding:9px 13px;font-size:.79rem;color:#445;margin-bottom:12px;line-height:1.6}
+  .info-bar strong{color:#1e2235}
+
+  /* Chat UI */
+  .chat-wrap{display:flex;flex-direction:column;border:1px solid #c8cedd;border-radius:8px;overflow:hidden;height:340px}
+  .chat-msgs{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:9px;background:#fafbfd}
+  .chat-msgs::-webkit-scrollbar{width:4px}
+  .chat-msgs::-webkit-scrollbar-thumb{background:#dde1ec;border-radius:2px}
+  .chat-footer{border-top:1px solid #dde1ec;display:flex;background:#fff}
+  .chat-footer input{flex:1;border:none;outline:none;padding:11px 14px;font-size:.85rem;font-family:inherit}
+  .chat-send{padding:11px 18px;background:#7c3aed;color:#fff;border:none;cursor:pointer;font-size:.82rem;font-weight:700;font-family:inherit;transition:background .15s;white-space:nowrap}
+  .chat-send:hover:not(:disabled){background:#5b21b6}
+  .chat-send:disabled{background:#c4b5fd;cursor:not-allowed}
+
+  .msg{display:flex;gap:7px;align-items:flex-end}
+  .msg.human{flex-direction:row-reverse}
+  .bubble{max-width:78%;padding:9px 12px;border-radius:11px;font-size:.845rem;line-height:1.6;word-break:break-word}
+  .bai{background:#fff;border:1px solid #dde1ec;border-radius:4px 11px 11px 11px}
+  .bhuman{background:#7c3aed;color:#fff;border-radius:11px 4px 11px 11px}
+  .av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;flex-shrink:0}
+  .av-ai{background:#ede9fe} .av-hu{background:#e0e7ff}
+
+  .chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#bbb;gap:5px;font-size:.8rem}
+  .search-q-badge{display:inline-block;background:#ede9fe;color:#6d28d9;font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:4px;font-family:monospace;margin-bottom:8px}
+
+  /* History table */
+  .hist-box{background:#f6f8fc;border:1px solid #dde1ec;border-radius:7px;max-height:130px;overflow-y:auto}
+  .hist-row{display:grid;grid-template-columns:55px 1fr;gap:0;border-bottom:1px solid #eaedf4;font-size:.76rem}
+  .hist-row:last-child{border-bottom:none}
+  .hist-role{font-family:monospace;font-size:.66rem;font-weight:700;padding:7px 10px;background:#f0f2f8}
+  .hist-role.human{color:#2a4fcc} .hist-role.ai{color:#7c3aed}
+  .hist-content{padding:7px 10px;color:#334;line-height:1.4}
+
+  .err-box{background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:9px 12px;font-size:.77rem;color:#dc2626;display:none;margin-top:10px}
+
+  /* doc list */
+  .doc-list{display:flex;flex-direction:column;gap:5px;max-height:180px;overflow-y:auto}
+  .doc-item{background:#f6f8fc;border:1px solid #dde1ec;border-radius:5px;padding:7px 11px;font-size:.77rem;color:#445;line-height:1.4}
+  .doc-idx{font-family:monospace;font-size:.65rem;color:#7c3aed;font-weight:700;margin-bottom:2px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LangChain RAG 실습</h1>
+  <span class="pkg">InMemory RAG</span>
+  <span class="pkg">WebLoader RAG</span>
+  <span class="pkg">CSV RAG</span>
+  <span class="pkg">PDF RAG</span>
+  <span class="pkg">Conversational RAG</span>
+</header>
+
+<nav>
+  <button class="tab active" onclick="switchTab(0)">1. InMemory RAG</button>
+  <button class="tab" onclick="switchTab(1)">2. Web RAG</button>
+  <button class="tab" onclick="switchTab(2)">3. CSV RAG</button>
+  <button class="tab" onclick="switchTab(3)">4. PDF RAG</button>
+  <button class="tab" onclick="switchTab(4)">5. Conversational RAG</button>
+</nav>
+
+<div class="page">
+
+<!-- ① InMemory RAG -->
+<div class="panel active" id="tab0">
+  <div class="card">
+    <div class="card-head">
+      <div><div class="card-title">InMemory RAG</div><div class="card-desc">순수 JS 코사인 유사도 기반 벡터스토어. faiss 등 네이티브 의존성 없이 동작합니다.</div></div>
+      <span class="badge b1">SimpleVectorStore</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="cmt">// 순수 JS 벡터스토어 + RAG</span>
+<span class="kw">const</span> vectorStore = <span class="kw">new</span> <span class="cls">SimpleVectorStore</span>();
+<span class="kw">await</span> vectorStore.<span class="fn">addDocuments</span>(docs, <span class="kw">new</span> <span class="cls">OpenAIEmbeddings</span>());
+
+<span class="kw">const</span> ragChain = <span class="cls">RunnableSequence</span>.<span class="fn">from</span>([
+  <span class="cls">RunnablePassthrough</span>.<span class="fn">assign</span>({
+    context: <span class="kw">async</span> (inp) => {
+      <span class="kw">const</span> docs = <span class="kw">await</span> vectorStore.<span class="fn">similaritySearch</span>(inp.input, <span class="num">3</span>, embedder);
+      <span class="kw">return</span> docs.<span class="fn">map</span>(d => d.pageContent).<span class="fn">join</span>(<span class="str">"\n\n"</span>);
+    },
+  }),
+  docPrompt.<span class="fn">pipe</span>(model).<span class="fn">pipe</span>(<span class="kw">new</span> <span class="cls">StringOutputParser</span>()),
+]);</div>
+
+      <div class="status-row">
+        <span class="chip chip-no" id="mem-status"><span class="dot dot-no"></span>미초기화</span>
+      </div>
+
+      <div class="rl">내장 문서 목록 (10개)</div>
+      <div class="doc-list" id="mem-docs"></div>
+
+      <div class="divider"></div>
+      <button class="btn btn1" id="mem-init-btn" onclick="memInit()" style="width:100%;margin-bottom:12px">▶ 벡터스토어 초기화 (임베딩 생성)</button>
+
+      <div class="form-row">
+        <div class="fg"><label>질문 입력</label><input type="text" id="mem-q" value="RAG가 뭔가요?" /></div>
+        <button class="btn btn1" id="mem-btn" onclick="memQuery()">▶ 질문</button>
+      </div>
+      <div class="err-box" id="mem-err"></div>
+      <div class="rw" id="mem-r">
+        <div class="divider"></div>
+        <div class="rl">LLM 답변</div>
+        <div class="ans-box ans1" id="mem-ans"></div>
+        <div class="rl" style="margin-top:12px">검색된 문서 (context)</div>
+        <div class="src-wrap" id="mem-srcs"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ② Web RAG -->
+<div class="panel" id="tab1">
+  <div class="card">
+    <div class="card-head">
+      <div><div class="card-title">Web RAG — CheerioWebBaseLoader</div><div class="card-desc">URL을 크롤링해 청킹 후 벡터스토어에 저장하고 질문합니다.</div></div>
+      <span class="badge b2">CheerioWebBaseLoader</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="kw">const</span> loader = <span class="kw">new</span> <span class="cls">CheerioWebBaseLoader</span>(url);
+<span class="kw">const</span> docs   = <span class="kw">await</span> loader.<span class="fn">load</span>();
+<span class="kw">const</span> chunks = <span class="kw">await</span> <span class="kw">new</span> <span class="cls">RecursiveCharacterTextSplitter</span>({
+  chunkSize: <span class="num">500</span>, chunkOverlap: <span class="num">100</span>,
+}).<span class="fn">splitDocuments</span>(docs);</div>
+
+      <div class="status-row">
+        <span class="chip chip-no" id="web-status"><span class="dot dot-no"></span>미로드</span>
+      </div>
+
+      <label>웹페이지 URL</label>
+      <input type="text" id="web-url" value="https://ko.wikipedia.org/wiki/%EC%9C%A4%EB%8F%99%EC%A3%BC" style="margin-bottom:10px" />
+      <button class="btn btn2" id="web-load-btn" onclick="webLoad()" style="width:100%;margin-bottom:14px">▶ URL 로드 & 임베딩 (20~40초)</button>
+
+      <div class="form-row">
+        <div class="fg"><label>질문 입력</label><input type="text" id="web-q" value="윤동주의 시집은 무엇인가요?" /></div>
+        <button class="btn btn2" id="web-btn" onclick="webQuery()">▶ 질문</button>
+      </div>
+      <div class="err-box" id="web-err"></div>
+      <div class="rw" id="web-r">
+        <div class="divider"></div>
+        <div class="rl">LLM 답변</div>
+        <div class="ans-box ans2" id="web-ans"></div>
+        <div class="rl" style="margin-top:12px">검색된 청크 (context)</div>
+        <div class="src-wrap" id="web-srcs"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ③ CSV RAG -->
+<div class="panel" id="tab2">
+  <div class="card">
+    <div class="card-head">
+      <div><div class="card-title">CSV RAG — CSVLoader</div><div class="card-desc">CSV 파일을 업로드하면 행 단위로 청킹 후 벡터스토어에 저장합니다.</div></div>
+      <span class="badge b3">CSVLoader</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="kw">const</span> loader = <span class="kw">new</span> <span class="cls">CSVLoader</span>(<span class="str">"policy.csv"</span>);
+<span class="kw">const</span> docs   = <span class="kw">await</span> loader.<span class="fn">load</span>();
+<span class="kw">const</span> chunks = <span class="kw">await</span> splitter.<span class="fn">splitDocuments</span>(docs);
+<span class="kw">const</span> vectorStore = <span class="kw">await</span> <span class="fn">addDocuments</span>(chunks, embeddings);</div>
+
+      <div class="status-row">
+        <span class="chip chip-no" id="csv-status"><span class="dot dot-no"></span>파일 없음</span>
+      </div>
+
+      <div class="upload-area" id="csv-upload" onclick="document.getElementById('csv-file').click()">
+        <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="csvFileSelected(event)"/>
+        <div class="upload-icon">📊</div>
+        <div class="upload-text">클릭하여 CSV 파일 업로드</div>
+        <div class="upload-name" id="csv-fname"></div>
+      </div>
+      <button class="btn btn3" id="csv-load-btn" onclick="csvLoad()" style="width:100%;margin-bottom:14px" disabled>▶ CSV 로드 & 임베딩</button>
+
+      <div class="form-row">
+        <div class="fg"><label>질문 입력</label><input type="text" id="csv-q" value="식대 지원은 얼마인가요?" /></div>
+        <button class="btn btn3" id="csv-btn" onclick="csvQuery()">▶ 질문</button>
+      </div>
+      <div class="err-box" id="csv-err"></div>
+      <div class="rw" id="csv-r">
+        <div class="divider"></div>
+        <div class="rl">LLM 답변</div>
+        <div class="ans-box ans3" id="csv-ans"></div>
+        <div class="rl" style="margin-top:12px">검색된 행 (context)</div>
+        <div class="src-wrap" id="csv-srcs"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ④ PDF RAG -->
+<div class="panel" id="tab3">
+  <div class="card">
+    <div class="card-head">
+      <div><div class="card-title">PDF RAG — PDFLoader</div><div class="card-desc">PDF 파일을 업로드하면 페이지별로 청킹 후 벡터스토어에 저장합니다.</div></div>
+      <span class="badge b4">PDFLoader</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="kw">const</span> loader = <span class="kw">new</span> <span class="cls">PDFLoader</span>(<span class="str">"company_policy.pdf"</span>);
+<span class="kw">const</span> docs   = <span class="kw">await</span> loader.<span class="fn">load</span>();  <span class="cmt">// 페이지별 Document</span>
+<span class="kw">const</span> chunks = <span class="kw">await</span> <span class="kw">new</span> <span class="cls">RecursiveCharacterTextSplitter</span>({
+  chunkSize: <span class="num">1000</span>, chunkOverlap: <span class="num">200</span>,
+}).<span class="fn">splitDocuments</span>(docs);
+<span class="kw">const</span> retriever = vectorStore.<span class="fn">asRetriever</span>({ k: <span class="num">5</span> });</div>
+
+      <div class="status-row">
+        <span class="chip chip-no" id="pdf-status"><span class="dot dot-no"></span>파일 없음</span>
+      </div>
+
+      <div class="upload-area" id="pdf-upload" onclick="document.getElementById('pdf-file').click()">
+        <input type="file" id="pdf-file" accept=".pdf" style="display:none" onchange="pdfFileSelected(event)"/>
+        <div class="upload-icon">📄</div>
+        <div class="upload-text">클릭하여 PDF 파일 업로드</div>
+        <div class="upload-name" id="pdf-fname"></div>
+      </div>
+      <button class="btn btn4" id="pdf-load-btn" onclick="pdfLoad()" style="width:100%;margin-bottom:14px" disabled>▶ PDF 로드 & 임베딩</button>
+
+      <div class="form-row">
+        <div class="fg"><label>질문 입력</label><input type="text" id="pdf-q" value="연차 휴가 규정은 어떻게 되나요?" /></div>
+        <button class="btn btn4" id="pdf-btn" onclick="pdfQuery()">▶ 질문</button>
+      </div>
+      <div class="err-box" id="pdf-err"></div>
+      <div class="rw" id="pdf-r">
+        <div class="divider"></div>
+        <div class="rl">LLM 답변</div>
+        <div class="ans-box ans4" id="pdf-ans"></div>
+        <div class="rl" style="margin-top:12px">검색된 청크 (context)</div>
+        <div class="src-wrap" id="pdf-srcs"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ⑤ Conversational RAG -->
+<div class="panel" id="tab4">
+  <div class="card">
+    <div class="card-head">
+      <div><div class="card-title">Conversational RAG</div><div class="card-desc">대화 이력을 기억하며 관련 문서를 검색해 답변합니다. 이전 질문 맥락을 반영해 검색어를 자동 생성합니다.</div></div>
+      <span class="badge b5">RunnableWithMessageHistory</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="cmt">// 이전 대화로 검색 쿼리 정제</span>
+<span class="kw">const</span> searchQuery = <span class="kw">await</span> queryRefinementChain.<span class="fn">invoke</span>({ history, input });
+
+<span class="cmt">// 문서 검색 후 context 생성</span>
+<span class="kw">const</span> context = (<span class="kw">await</span> retriever.<span class="fn">invoke</span>(searchQuery))
+  .<span class="fn">map</span>(d => d.pageContent).<span class="fn">join</span>(<span class="str">"\n\n"</span>);
+
+<span class="cmt">// 대화 이력 + context를 포함한 프롬프트</span>
+<span class="kw">const</span> prompt = <span class="cls">ChatPromptTemplate</span>.<span class="fn">fromMessages</span>([
+  [<span class="str">"system"</span>, <span class="str">`컨텍스트: {context}`</span>],
+  <span class="kw">new</span> <span class="cls">MessagesPlaceholder</span>(<span class="str">"history"</span>),
+  [<span class="str">"human"</span>, <span class="str">"{input}"</span>],
+]);
+<span class="kw">const</span> chain = <span class="kw">new</span> <span class="cls">RunnableWithMessageHistory</span>({ runnable, getMessageHistory });</div>
+
+      <div class="status-row">
+        <span class="chip chip-no" id="conv-status"><span class="dot dot-no"></span>미초기화</span>
+        <button class="btn btn-gray" style="padding:4px 10px;font-size:.72rem" onclick="convReset()">대화 초기화</button>
+      </div>
+
+      <button class="btn btn5" id="conv-init-btn" onclick="convInit()" style="width:100%;margin-bottom:14px">▶ 벡터스토어 초기화</button>
+
+      <div class="chat-wrap">
+        <div class="chat-msgs" id="conv-msgs">
+          <div class="chat-empty" id="conv-empty">
+            <div style="font-size:1.8rem;opacity:.3">💬</div>
+            <div>초기화 후 대화를 시작하세요<br><small style="font-size:.75rem;opacity:.7">예: "윤동주가 누구야?" → "그의 대표작은?"</small></div>
+          </div>
+        </div>
+        <div class="chat-footer">
+          <input type="text" id="conv-input" placeholder="질문을 입력하세요..." onkeydown="if(event.key==='Enter')convSend()" />
+          <button class="chat-send" id="conv-send" onclick="convSend()">전송</button>
+        </div>
+      </div>
+      <div class="err-box" id="conv-err"></div>
+
+      <div class="rl" style="margin-top:13px">ChatMessageHistory (서버 저장 이력)</div>
+      <div class="hist-box" id="conv-hist">
+        <div style="padding:8px 12px;font-size:.77rem;color:#aab;text-align:center">대화 이력 없음</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- .page -->
+
+<script>
+// ── Tab ──────────────────────────────────────────
+function switchTab(i){
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
+  document.querySelectorAll('.panel').forEach((p,j)=>p.classList.toggle('active',i===j));
+}
+
+// ── Helpers ───────────────────────────────────────
+async function post(url,body){
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json(); if(!d.success)throw new Error(d.error); return d;
+}
+function setBtn(id,loading,label){
+  const b=document.getElementById(id);b.disabled=loading;b.textContent=loading?'처리 중...':label;
+}
+function showErr(id,msg){const e=document.getElementById(id);e.textContent='❌ '+msg;e.style.display='block';}
+function hideErr(id){document.getElementById(id).style.display='none';}
+function show(id){document.getElementById(id).classList.add('show');}
+function setStatus(id,ok,text){
+  const e=document.getElementById(id);
+  e.className='chip '+(ok?'chip-ok':'chip-no');
+  e.innerHTML=`<span class="dot ${ok?'dot-ok':'dot-no'}"></span>${text}`;
+}
+function renderSrcs(id,srcs){
+  document.getElementById(id).innerHTML=srcs.map(s=>`
+    <div class="src-card">
+      <div class="src-meta">📄 ${s.source}</div>
+      <div class="src-text">${s.content}</div>
+    </div>`).join('');
+}
+
+// ── 1. InMemory RAG ───────────────────────────────
+const MEM_DOCS=[
+  "LangChain은 LLM 기반 애플리케이션을 쉽게 구축할 수 있도록 도와주는 오픈소스 프레임워크입니다.",
+  "LCEL(LangChain Expression Language)은 체인을 선언적으로 구성하는 방법으로, pipe() 연산자로 컴포넌트를 연결합니다.",
+  "RAG(Retrieval-Augmented Generation)는 외부 문서를 검색해 LLM의 답변 품질을 높이는 기법입니다.",
+  "벡터스토어는 텍스트를 임베딩 벡터로 변환해 저장하고 의미적 유사도 기반 검색을 가능하게 합니다.",
+  "RunnableSequence는 여러 Runnable을 순서대로 연결하는 클래스입니다.",
+  "RunnablePassthrough는 입력을 그대로 통과시키거나 assign()으로 새 키를 추가하는 클래스입니다.",
+  "ChatMessageHistory는 대화 이력을 세션별로 저장하고 관리하는 클래스입니다.",
+  "MessagesPlaceholder는 프롬프트 템플릿에서 대화 이력을 동적으로 삽입할 때 사용합니다.",
+  "OpenAIEmbeddings는 텍스트를 OpenAI의 임베딩 모델로 벡터화하는 클래스입니다.",
+  "RecursiveCharacterTextSplitter는 문서를 청크 크기와 오버랩 기준으로 분할하는 클래스입니다.",
+];
+document.getElementById('mem-docs').innerHTML=MEM_DOCS.map((t,i)=>`
+  <div class="doc-item"><div class="doc-idx">doc-${i+1}</div>${t}</div>`).join('');
+
+async function memInit(){
+  setBtn('mem-init-btn',true,'▶ 벡터스토어 초기화 (임베딩 생성)');hideErr('mem-err');
+  try{
+    const d=await post('/api/mem/init',{});
+    setStatus('mem-status',true,`초기화 완료 (${d.doc_count}개 문서)`);
+  }catch(e){showErr('mem-err',e.message);}
+  finally{setBtn('mem-init-btn',false,'▶ 벡터스토어 초기화 (임베딩 생성)');}
+}
+async function memQuery(){
+  const q=document.getElementById('mem-q').value.trim();if(!q)return;
+  setBtn('mem-btn',true,'▶ 질문');hideErr('mem-err');
+  document.getElementById('mem-r').classList.remove('show');
+  try{
+    const d=await post('/api/mem/query',{input:q});
+    document.getElementById('mem-ans').textContent=d.answer;
+    renderSrcs('mem-srcs',d.source_docs);
+    show('mem-r');
+  }catch(e){showErr('mem-err',e.message);}
+  finally{setBtn('mem-btn',false,'▶ 질문');}
+}
+
+// ── 2. Web RAG ────────────────────────────────────
+async function webLoad(){
+  const url=document.getElementById('web-url').value.trim();if(!url)return;
+  setBtn('web-load-btn',true,'▶ URL 로드 & 임베딩 (20~40초)');hideErr('web-err');
+  try{
+    const d=await post('/api/web/load',{url});
+    setStatus('web-status',true,`로드 완료 (${d.chunk_count}개 청크)`);
+  }catch(e){showErr('web-err',e.message);}
+  finally{setBtn('web-load-btn',false,'▶ URL 로드 & 임베딩 (20~40초)');}
+}
+async function webQuery(){
+  const q=document.getElementById('web-q').value.trim();if(!q)return;
+  setBtn('web-btn',true,'▶ 질문');hideErr('web-err');
+  document.getElementById('web-r').classList.remove('show');
+  try{
+    const d=await post('/api/web/query',{input:q});
+    document.getElementById('web-ans').textContent=d.answer;
+    renderSrcs('web-srcs',d.source_docs);
+    show('web-r');
+  }catch(e){showErr('web-err',e.message);}
+  finally{setBtn('web-btn',false,'▶ 질문');}
+}
+
+// ── 3. CSV RAG ────────────────────────────────────
+let csvFile=null;
+function csvFileSelected(e){
+  csvFile=e.target.files[0];
+  if(!csvFile)return;
+  document.getElementById('csv-fname').textContent=csvFile.name;
+  document.getElementById('csv-upload').classList.add('has-file');
+  document.getElementById('csv-load-btn').disabled=false;
+}
+async function csvLoad(){
+  if(!csvFile)return;
+  setBtn('csv-load-btn',true,'▶ CSV 로드 & 임베딩');hideErr('csv-err');
+  try{
+    const fd=new FormData();fd.append('file',csvFile);
+    const r=await fetch('/api/csv/load',{method:'POST',body:fd});
+    const d=await r.json();if(!d.success)throw new Error(d.error);
+    setStatus('csv-status',true,`로드 완료 (${d.chunk_count}개 청크)`);
+  }catch(e){showErr('csv-err',e.message);}
+  finally{setBtn('csv-load-btn',false,'▶ CSV 로드 & 임베딩');}
+}
+async function csvQuery(){
+  const q=document.getElementById('csv-q').value.trim();if(!q)return;
+  setBtn('csv-btn',true,'▶ 질문');hideErr('csv-err');
+  document.getElementById('csv-r').classList.remove('show');
+  try{
+    const d=await post('/api/csv/query',{input:q});
+    document.getElementById('csv-ans').textContent=d.answer;
+    renderSrcs('csv-srcs',d.source_docs);
+    show('csv-r');
+  }catch(e){showErr('csv-err',e.message);}
+  finally{setBtn('csv-btn',false,'▶ 질문');}
+}
+
+// ── 4. PDF RAG ────────────────────────────────────
+let pdfFile=null;
+function pdfFileSelected(e){
+  pdfFile=e.target.files[0];
+  if(!pdfFile)return;
+  document.getElementById('pdf-fname').textContent=pdfFile.name;
+  document.getElementById('pdf-upload').classList.add('has-file');
+  document.getElementById('pdf-load-btn').disabled=false;
+}
+async function pdfLoad(){
+  if(!pdfFile)return;
+  setBtn('pdf-load-btn',true,'▶ PDF 로드 & 임베딩');hideErr('pdf-err');
+  try{
+    const fd=new FormData();fd.append('file',pdfFile);
+    const r=await fetch('/api/pdf/load',{method:'POST',body:fd});
+    const d=await r.json();if(!d.success)throw new Error(d.error);
+    setStatus('pdf-status',true,`로드 완료 (${d.page_count}페이지 / ${d.chunk_count}청크)`);
+  }catch(e){showErr('pdf-err',e.message);}
+  finally{setBtn('pdf-load-btn',false,'▶ PDF 로드 & 임베딩');}
+}
+async function pdfQuery(){
+  const q=document.getElementById('pdf-q').value.trim();if(!q)return;
+  setBtn('pdf-btn',true,'▶ 질문');hideErr('pdf-err');
+  document.getElementById('pdf-r').classList.remove('show');
+  try{
+    const d=await post('/api/pdf/query',{input:q});
+    document.getElementById('pdf-ans').textContent=d.answer;
+    renderSrcs('pdf-srcs',d.source_docs);
+    show('pdf-r');
+  }catch(e){showErr('pdf-err',e.message);}
+  finally{setBtn('pdf-btn',false,'▶ 질문');}
+}
+
+// ── 5. Conversational RAG ─────────────────────────
+const CONV_SID='conv-'+Math.random().toString(36).slice(2,7);
+let convMsgs=[];
+
+async function convInit(){
+  setBtn('conv-init-btn',true,'▶ 벡터스토어 초기화');hideErr('conv-err');
+  try{
+    const d=await post('/api/convrag/init',{});
+    setStatus('conv-status',true,`초기화 완료 (${d.doc_count}개 문서)`);
+  }catch(e){showErr('conv-err',e.message);}
+  finally{setBtn('conv-init-btn',false,'▶ 벡터스토어 초기화');}
+}
+
+function renderConvMsgs(){
+  const el=document.getElementById('conv-msgs');
+  const empty=document.getElementById('conv-empty');
+  if(!convMsgs.length){if(empty)empty.style.display='flex';return;}
+  if(empty)empty.style.display='none';
+  el.innerHTML=convMsgs.map(m=>`
+    <div class="msg ${m.role}">
+      <div class="av ${m.role==='ai'?'av-ai':'av-hu'}">${m.role==='ai'?'🤖':'👤'}</div>
+      <div class="bubble ${m.role==='ai'?'bai':'bhuman'}">${m.content.replace(/\n/g,'<br>')}</div>
+    </div>`).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+function renderConvHist(hist){
+  const el=document.getElementById('conv-hist');
+  if(!hist.length){el.innerHTML='<div style="padding:8px 12px;font-size:.77rem;color:#aab;text-align:center">대화 이력 없음</div>';return;}
+  el.innerHTML=hist.map(m=>`
+    <div class="hist-row">
+      <div class="hist-role ${m.role}">${m.role}</div>
+      <div class="hist-content">${(m.content.length>60?m.content.slice(0,60)+'…':m.content)}</div>
+    </div>`).join('');
+}
+
+async function convSend(){
+  const input=document.getElementById('conv-input').value.trim();if(!input)return;
+  document.getElementById('conv-input').value='';
+  const send=document.getElementById('conv-send');send.disabled=true;send.textContent='...';
+  hideErr('conv-err');
+  convMsgs.push({role:'human',content:input});renderConvMsgs();
+  try{
+    const d=await post('/api/convrag/chat',{input,sessionId:CONV_SID});
+    convMsgs.push({role:'ai',content:d.answer});
+    renderConvMsgs();
+    renderConvHist(d.history);
+    // 검색 쿼리 표시
+    const el=document.getElementById('conv-msgs');
+    const badge=document.createElement('div');
+    badge.style.cssText='text-align:center;padding:2px 0';
+    badge.innerHTML=`<span class="search-q-badge">🔍 검색: "${d.search_query}"</span>`;
+    el.appendChild(badge);
+    el.scrollTop=el.scrollHeight;
+  }catch(e){
+    convMsgs.pop();renderConvMsgs();showErr('conv-err',e.message);
+  }finally{send.disabled=false;send.textContent='전송';document.getElementById('conv-input').focus();}
+}
+
+async function convReset(){
+  try{
+    await post('/api/convrag/reset',{sessionId:CONV_SID});
+    convMsgs=[];renderConvMsgs();renderConvHist([]);
+    const empty=document.getElementById('conv-empty');if(empty)empty.style.display='flex';
+    const el=document.getElementById('conv-msgs');
+    el.querySelectorAll('[class="search-q-badge"]').forEach(e=>e.parentElement.remove());
+  }catch(e){showErr('conv-err',e.message);}
+}
+
+// enter keys
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||e.shiftKey)return;
+  const id=document.activeElement?.id;
+  if(id==='mem-q')memQuery();
+  else if(id==='web-q')webQuery();
+  else if(id==='csv-q')csvQuery();
+  else if(id==='pdf-q')pdfQuery();
+});
+</script>
+</body>
+</html>

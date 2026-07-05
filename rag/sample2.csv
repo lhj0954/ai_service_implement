@@ -1,0 +1,15 @@
+﻿id,title,content
+1,LangChain,LangChain은 LLM 기반 애플리케이션 개발 프레임워크입니다.
+2,RAG,RAG는 검색 기반 생성 기법입니다.
+3,FAISS,FAISS는 Facebook AI에서 개발한 벡터 검색 라이브러리입니다.
+4,Embedding,Embedding은 텍스트를 벡터로 변환합니다.
+5,LCEL,LCEL은 Runnable을 연결하는 선언형 방식입니다.
+6,LangChain,LangChain은 LLM 기반 애플리케이션을 쉽게 구축할 수 있도록 도와주는 오픈소스 프레임워크입니다.
+7,LCEL,"LCEL(LangChain Expression Language)은 체인을 선언적으로 구성하는 방법으로, pipe() 연산자로 컴포넌트를 연결합니다."
+8,RAG,RAG(Retrieval-Augmented Generation)는 외부 문서를 검색해 LLM의 답변 품질을 높이는 기법입니다.
+9,vectorstorea,벡터스토어는 텍스트를 임베딩 벡터로 변환해 저장하고 의미적 유사도 기반 검색을 가능하게 합니다.
+10,RunnableSequence,RunnableSequence는 여러 Runnable을 순서대로 연결하는 클래스입니다.
+11,RunnablePassthrough,RunnablePassthrough는 입력을 그대로 통과시키거나 assign()으로 새 키를 추가하는 클래스입니다.
+12,ChatMessageHistory,ChatMessageHistory는 대화 이력을 세션별로 저장하고 관리하는 클래스입니다.
+13,MessagesPlaceholder,MessagesPlaceholder는 프롬프트 템플릿에서 대화 이력을 동적으로 삽입할 때 사용합니다.
+14,OpenAIEmbeddings,OpenAIEmbeddings는 텍스트를 OpenAI의 임베딩 모델로 벡터화하는 클래스입니다.

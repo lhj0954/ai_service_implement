@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LangChain Chat Memory 백엔드 비교</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#e2e6ef;color:#1e2235;min-height:100vh}
+
+header{background:#fff;border-bottom:1px solid #c8cedd;padding:13px 28px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header h1{font-size:.98rem;font-weight:700}
+.pkg{font-family:monospace;font-size:.68rem;background:#e2e6ef;border:1px solid #c8cedd;padding:2px 8px;border-radius:4px;color:#556}
+
+nav{background:#fff;border-bottom:1px solid #c8cedd;display:flex;padding:0 28px;overflow-x:auto}
+.tab{padding:11px 20px;font-size:.81rem;font-weight:500;border:none;background:none;cursor:pointer;color:#778;border-bottom:2px solid transparent;position:relative;bottom:-1px;white-space:nowrap;font-family:inherit;transition:color .15s}
+.tab:hover{color:#334}
+.tab.active{font-weight:700;border-bottom-color:currentColor}
+.tab:nth-child(1).active{color:#2a4fcc}
+.tab:nth-child(2).active{color:#16a34a}
+.tab:nth-child(3).active{color:#dc2626}
+
+.page{max-width:880px;margin:20px auto;padding:0 16px 52px}
+.panel{display:none;flex-direction:column;gap:13px}
+.panel.active{display:flex}
+
+.card{background:#fff;border:1px solid #c8cedd;border-radius:10px;overflow:hidden}
+.card-head{padding:13px 18px 11px;border-bottom:1px solid #eaedf4;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.card-title{font-size:.88rem;font-weight:700;margin-bottom:2px}
+.card-desc{font-size:.74rem;color:#778;line-height:1.5}
+.card-body{padding:15px 18px}
+
+.badge{font-family:monospace;font-size:.67rem;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap;flex-shrink:0}
+.b1{background:#dbeafe;color:#1d4ed8}
+.b2{background:#dcfce7;color:#15803d}
+.b3{background:#fee2e2;color:#b91c1c}
+
+.code-block{background:#1a1d2e;border-radius:7px;padding:12px 15px;font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.85;color:#c8d0f0;overflow-x:auto;white-space:pre;margin-bottom:14px}
+.kw{color:#bb9af7}.fn{color:#7dcfff}.str{color:#9ece6a}.cmt{color:#565f89;font-style:italic}.cls{color:#e0af68}.num{color:#ff9e64}
+
+/* persistence indicator */
+.persist-row{display:flex;gap:8px;margin-bottom:14px}
+.persist-chip{flex:1;text-align:center;padding:8px 10px;border-radius:7px;font-size:.74rem;font-weight:600;border:1px solid}
+.pc-on{background:#f0fdf4;border-color:#bbf7d0;color:#15803d}
+.pc-off{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+.pc-cond{background:#fffbeb;border-color:#fde68a;color:#92400e}
+
+/* Chat UI */
+.session-row{display:flex;gap:8px;margin-bottom:12px;align-items:flex-end}
+label{display:block;font-size:.73rem;color:#556;font-weight:600;margin-bottom:4px}
+input[type="text"]{width:100%;border:1px solid #c8cedd;border-radius:6px;padding:7px 11px;font-size:.83rem;font-family:inherit;color:#1e2235;background:#f6f8fc;outline:none;transition:border-color .15s}
+input[type="text"]:focus{border-color:#2a4fcc;box-shadow:0 0 0 3px rgba(42,79,204,.1);background:#fff}
+.fg{flex:1}
+
+.chat-wrap{display:flex;flex-direction:column;border:1px solid #c8cedd;border-radius:8px;overflow:hidden;height:300px;margin-bottom:11px}
+.chat-msgs{flex:1;overflow-y:auto;padding:11px 13px;display:flex;flex-direction:column;gap:8px;background:#fafbfd}
+.chat-msgs::-webkit-scrollbar{width:4px}
+.chat-msgs::-webkit-scrollbar-thumb{background:#dde1ec;border-radius:2px}
+.chat-footer{border-top:1px solid #dde1ec;display:flex;background:#fff}
+.chat-footer input{flex:1;border:none;outline:none;padding:10px 13px;font-size:.83rem;font-family:inherit}
+.chat-send{padding:10px 16px;border:none;cursor:pointer;font-size:.8rem;font-weight:700;font-family:inherit;color:#fff;white-space:nowrap;transition:opacity .15s}
+.chat-send:disabled{opacity:.5;cursor:not-allowed}
+
+.msg{display:flex;gap:7px;align-items:flex-end}
+.msg.human{flex-direction:row-reverse}
+.bubble{max-width:78%;padding:8px 11px;border-radius:11px;font-size:.82rem;line-height:1.55;word-break:break-word}
+.bai{background:#fff;border:1px solid #dde1ec;border-radius:4px 11px 11px 11px}
+.av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;flex-shrink:0}
+.chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#bbb;gap:5px;font-size:.78rem}
+
+.btn{padding:8px 16px;border:none;border-radius:6px;font-size:.81rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:opacity .15s,transform .1s}
+.btn:hover:not(:disabled){opacity:.85;transform:translateY(-1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-gray{background:#6b7280;color:#fff}
+.btn-blue{background:#2a4fcc;color:#fff}
+
+.divider{height:1px;background:#eaedf4;margin:13px 0}
+.rl{font-size:.66rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#889;margin-bottom:6px}
+
+.raw-box{background:#f6f8fc;border:1px solid #dde1ec;border-radius:7px;padding:11px 13px;font-family:monospace;font-size:.74rem;line-height:1.7;color:#334;max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
+
+.status-chip{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:14px}
+.s-ok{background:#dcfce7;color:#15803d}
+.s-bad{background:#fef2f2;color:#dc2626}
+.s-checking{background:#f3f4f6;color:#6b7280}
+.sdot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+.err-box{background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:10px 13px;font-size:.78rem;color:#dc2626;display:none;margin-top:10px;line-height:1.55}
+.info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:10px 13px;font-size:.78rem;color:#1e40af;line-height:1.6;margin-bottom:12px}
+
+.file-path{font-family:monospace;font-size:.72rem;background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;padding:5px 10px;border-radius:5px;margin-bottom:10px;display:inline-block}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LangChain Chat Memory 백엔드 비교</h1>
+  <span class="pkg">RunnableWithMessageHistory</span>
+  <span class="pkg">BaseListChatMessageHistory</span>
+</header>
+
+<nav>
+  <button class="tab active" onclick="switchTab(0)">1. InMemory</button>
+  <button class="tab"        onclick="switchTab(1)">2. JSON 파일</button>
+  <button class="tab"        onclick="switchTab(2)">3. Redis</button>
+</nav>
+
+<div class="page">
+
+<!-- ══════════════ 1. InMemory ══════════════ -->
+<div class="panel active" id="tab0">
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">InMemoryChatMessageHistory</div>
+        <div class="card-desc">프로세스 메모리에 저장됩니다. 가장 빠르지만 서버 재시작 시 모두 사라집니다.</div>
+      </div>
+      <span class="badge b1">InMemory</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="kw">import</span> { <span class="cls">InMemoryChatMessageHistory</span> } <span class="kw">from</span> <span class="str">"@langchain/core/chat_history"</span>;
+
+<span class="kw">const</span> stores = {};
+<span class="kw">const</span> getHistory = <span class="kw">async</span> (sessionId) => {
+  <span class="kw">if</span> (!stores[sessionId]) stores[sessionId] = <span class="kw">new</span> <span class="cls">InMemoryChatMessageHistory</span>();
+  <span class="kw">return</span> stores[sessionId];
+};
+
+<span class="kw">const</span> chainWithMemory = <span class="kw">new</span> <span class="cls">RunnableWithMessageHistory</span>({
+  runnable: prompt.<span class="fn">pipe</span>(model),
+  getMessageHistory: getHistory,
+  inputMessagesKey: <span class="str">"input"</span>,
+  historyMessagesKey: <span class="str">"chat_history"</span>,
+});</div>
+
+      <div class="persist-row">
+        <div class="persist-chip pc-off">⚠️ 서버 재시작 시 소멸</div>
+        <div class="persist-chip pc-on">⚡ 가장 빠른 속도</div>
+        <div class="persist-chip pc-cond">🖥️ 단일 프로세스만 공유</div>
+      </div>
+
+      <div class="session-row">
+        <div class="fg">
+          <label>세션 ID</label>
+          <input type="text" id="memory-session" value="user123" />
+        </div>
+        <button class="btn btn-gray" onclick="resetChat('memory')">초기화</button>
+      </div>
+
+      <div class="chat-wrap">
+        <div class="chat-msgs" id="memory-msgs">
+          <div class="chat-empty"><div style="font-size:1.6rem;opacity:.3">💬</div><div>대화를 시작하세요</div></div>
+        </div>
+        <div class="chat-footer">
+          <input type="text" id="memory-input" placeholder="메시지 입력..." onkeydown="if(event.key==='Enter')sendChat('memory')" />
+          <button class="chat-send" style="background:#2a4fcc" onclick="sendChat('memory')">전송</button>
+        </div>
+      </div>
+      <div class="err-box" id="memory-err"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 2. JSON 파일 ══════════════ -->
+<div class="panel" id="tab1">
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">SimpleFileChatMessageHistory</div>
+        <div class="card-desc">BaseListChatMessageHistory를 상속해 JSON 파일로 저장합니다. 서버를 재시작해도 대화가 유지됩니다.</div>
+      </div>
+      <span class="badge b2">File</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="kw">class</span> <span class="cls">SimpleFileChatMessageHistory</span> <span class="kw">extends</span> <span class="cls">BaseListChatMessageHistory</span> {
+  <span class="kw">constructor</span>(sessionId) {
+    <span class="kw">super</span>();
+    <span class="kw">this</span>.filePath = <span class="str">`chat_histories/${sessionId}.json`</span>;
+  }
+  <span class="kw">async</span> <span class="fn">getMessages</span>() {
+    <span class="kw">const</span> data = <span class="kw">await</span> fs.<span class="fn">readFile</span>(<span class="kw">this</span>.filePath, <span class="str">"utf-8"</span>);
+    <span class="kw">return</span> <span class="fn">JSON.parse</span>(data).<span class="fn">map</span>(toMessage);
+  }
+  <span class="kw">async</span> <span class="fn">addMessage</span>(message) {
+    <span class="kw">const</span> messages = <span class="kw">await</span> <span class="kw">this</span>.<span class="fn">getMessages</span>();
+    messages.<span class="fn">push</span>(message);
+    <span class="kw">await</span> fs.<span class="fn">writeFile</span>(<span class="kw">this</span>.filePath, <span class="fn">JSON.stringify</span>(messages));
+  }
+}</div>
+
+      <div class="persist-row">
+        <div class="persist-chip pc-on">✅ 서버 재시작에도 유지</div>
+        <div class="persist-chip pc-cond">📁 파일 I/O로 약간 느림</div>
+        <div class="persist-chip pc-cond">🖥️ 같은 디스크 내에서만 공유</div>
+      </div>
+
+      <div class="session-row">
+        <div class="fg">
+          <label>세션 ID</label>
+          <input type="text" id="file-session" value="user-2026-03" />
+        </div>
+        <button class="btn btn-gray" onclick="resetChat('file')">초기화</button>
+        <button class="btn btn-blue" onclick="loadRawFile()">파일 내용 보기</button>
+      </div>
+
+      <div class="chat-wrap">
+        <div class="chat-msgs" id="file-msgs">
+          <div class="chat-empty"><div style="font-size:1.6rem;opacity:.3">💬</div><div>대화를 시작하세요</div></div>
+        </div>
+        <div class="chat-footer">
+          <input type="text" id="file-input" placeholder="메시지 입력..." onkeydown="if(event.key==='Enter')sendChat('file')" />
+          <button class="chat-send" style="background:#16a34a" onclick="sendChat('file')">전송</button>
+        </div>
+      </div>
+      <div class="err-box" id="file-err"></div>
+
+      <div id="file-raw-wrap" style="display:none">
+        <div class="divider"></div>
+        <div class="rl">저장된 JSON 파일 내용</div>
+        <div class="file-path" id="file-path-display"></div>
+        <div class="raw-box" id="file-raw"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ 3. Redis ══════════════ -->
+<div class="panel" id="tab2">
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">RedisChatMessageHistory</div>
+        <div class="card-desc">Redis List에 저장됩니다. TTL 만료, 여러 서버 간 공유가 가능해 프로덕션에 적합합니다.</div>
+      </div>
+      <span class="badge b3">Redis</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="kw">class</span> <span class="cls">SimpleRedisChatMessageHistory</span> <span class="kw">extends</span> <span class="cls">BaseListChatMessageHistory</span> {
+  <span class="kw">constructor</span>({ sessionId, url, ttl }) {
+    <span class="kw">super</span>();
+    <span class="kw">this</span>.key = <span class="str">`chat_history:${sessionId}`</span>;
+    <span class="kw">this</span>.client = <span class="kw">new</span> <span class="cls">Redis</span>(url);
+    <span class="kw">this</span>.ttl = ttl;
+  }
+  <span class="kw">async</span> <span class="fn">getMessages</span>() {
+    <span class="kw">const</span> raw = <span class="kw">await</span> <span class="kw">this</span>.client.<span class="fn">lrange</span>(<span class="kw">this</span>.key, <span class="num">0</span>, -<span class="num">1</span>);
+    <span class="kw">return</span> raw.<span class="fn">map</span>(toMessage);
+  }
+  <span class="kw">async</span> <span class="fn">addMessage</span>(message) {
+    <span class="kw">await</span> <span class="kw">this</span>.client.<span class="fn">rpush</span>(<span class="kw">this</span>.key, <span class="fn">JSON.stringify</span>(message));
+    <span class="kw">if</span> (<span class="kw">this</span>.ttl) <span class="kw">await</span> <span class="kw">this</span>.client.<span class="fn">expire</span>(<span class="kw">this</span>.key, <span class="kw">this</span>.ttl);
+  }
+}</div>
+
+      <div class="persist-row">
+        <div class="persist-chip pc-on">✅ TTL 만료 지원</div>
+        <div class="persist-chip pc-on">🌐 여러 서버 간 공유</div>
+        <div class="persist-chip pc-cond">🔌 Redis 서버 필요</div>
+      </div>
+
+      <div class="session-row">
+        <div class="fg">
+          <label>Redis URL</label>
+          <input type="text" id="redis-url" value="redis://localhost:6379" onchange="checkRedisStatus()" />
+        </div>
+        <button class="btn btn-gray" onclick="checkRedisStatus()">연결 확인</button>
+      </div>
+      <div style="margin-bottom:12px">
+        <span class="status-chip s-checking" id="redis-status"><span class="sdot"></span>확인 중...</span>
+      </div>
+
+      <div class="info-box" id="redis-info" style="display:none">
+        Redis 서버가 실행 중이지 않습니다. 로컬에서 테스트하려면:<br>
+        <code style="font-family:monospace">docker run -d -p 6379:6379 redis</code> 또는 <code style="font-family:monospace">redis-server</code> 실행 후 다시 확인하세요.
+      </div>
+
+      <div class="session-row">
+        <div class="fg">
+          <label>세션 ID</label>
+          <input type="text" id="redis-session" value="user-session-abc123" />
+        </div>
+        <button class="btn btn-gray" onclick="resetChat('redis')">초기화</button>
+      </div>
+
+      <div class="chat-wrap">
+        <div class="chat-msgs" id="redis-msgs">
+          <div class="chat-empty"><div style="font-size:1.6rem;opacity:.3">💬</div><div>대화를 시작하세요</div></div>
+        </div>
+        <div class="chat-footer">
+          <input type="text" id="redis-input" placeholder="메시지 입력..." onkeydown="if(event.key==='Enter')sendChat('redis')" />
+          <button class="chat-send" style="background:#dc2626" onclick="sendChat('redis')">전송</button>
+        </div>
+      </div>
+      <div class="err-box" id="redis-err"></div>
+
+      <div id="redis-meta" style="display:none">
+        <div class="divider"></div>
+        <div class="rl">Redis 메타 정보</div>
+        <div class="raw-box" id="redis-meta-content"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /page -->
+
+<script>
+function switchTab(i) {
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
+  document.querySelectorAll('.panel').forEach((p,j)=>p.classList.toggle('active',i===j));
+}
+
+const histories = { memory: [], file: [], redis: [] };
+
+function renderChat(backend) {
+  const el = document.getElementById(`${backend}-msgs`);
+  const msgs = histories[backend];
+  if (!msgs.length) {
+    el.innerHTML = `<div class="chat-empty"><div style="font-size:1.6rem;opacity:.3">💬</div><div>대화를 시작하세요</div></div>`;
+    return;
+  }
+  const avBg = { memory:'#dbeafe', file:'#dcfce7', redis:'#fee2e2' };
+  el.innerHTML = msgs.map(m => `
+    <div class="msg ${m.role==='human'?'human':''}">
+      <div class="av" style="background:${m.role==='human'?'#e0e7ff':avBg[backend]}">${m.role==='human'?'👤':'🤖'}</div>
+      <div class="bubble ${m.role==='human'?'':'bai'}" style="${m.role==='human'?`background:#2a4fcc;color:#fff;border-radius:11px 4px 11px 11px`:''}">${m.content}</div>
+    </div>`).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendChat(backend) {
+  const input = document.getElementById(`${backend}-input`);
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  const sendBtn = input.nextElementSibling;
+  sendBtn.disabled = true;
+  document.getElementById(`${backend}-err`).style.display = 'none';
+
+  histories[backend].push({ role:'human', content:text });
+  renderChat(backend);
+
+  try {
+    const sessionId = document.getElementById(`${backend}-session`).value.trim() || 'demo';
+    const body = { input: text, sessionId };
+    if (backend === 'redis') body.redisUrl = document.getElementById('redis-url').value.trim();
+
+    const r = await fetch(`/api/${backend}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error);
+
+    histories[backend].push({ role:'ai', content: d.answer });
+    renderChat(backend);
+
+    if (backend === 'redis' && d.redisKey) {
+      document.getElementById('redis-meta').style.display = 'block';
+      document.getElementById('redis-meta-content').textContent =
+        `Redis Key: ${d.redisKey}\nTTL: ${d.ttl}초\nRedis URL: ${d.redisUrl}`;
+    }
+  } catch (e) {
+    histories[backend].pop();
+    renderChat(backend);
+    const el = document.getElementById(`${backend}-err`);
+    el.textContent = '❌ ' + e.message;
+    el.style.display = 'block';
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+async function resetChat(backend) {
+  const sessionId = document.getElementById(`${backend}-session`).value.trim() || 'demo';
+  const body = { sessionId };
+  if (backend === 'redis') body.redisUrl = document.getElementById('redis-url').value.trim();
+
+  await fetch(`/api/${backend}/reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  histories[backend] = [];
+  renderChat(backend);
+  if (backend === 'file') document.getElementById('file-raw-wrap').style.display = 'none';
+  if (backend === 'redis') document.getElementById('redis-meta').style.display = 'none';
+}
+
+async function loadRawFile() {
+  const sessionId = document.getElementById('file-session').value.trim() || 'demo';
+  const r = await fetch(`/api/file/raw?sessionId=${encodeURIComponent(sessionId)}`);
+  const d = await r.json();
+  document.getElementById('file-raw-wrap').style.display = 'block';
+  document.getElementById('file-path-display').textContent = d.filePath;
+  document.getElementById('file-raw').textContent = JSON.stringify(d.raw, null, 2);
+}
+
+async function checkRedisStatus() {
+  const url = document.getElementById('redis-url').value.trim();
+  const statusEl = document.getElementById('redis-status');
+  statusEl.className = 'status-chip s-checking';
+  statusEl.innerHTML = '<span class="sdot"></span>확인 중...';
+
+  try {
+    const r = await fetch(`/api/redis/status?redisUrl=${encodeURIComponent(url)}`);
+    const d = await r.json();
+    if (d.connected) {
+      statusEl.className = 'status-chip s-ok';
+      statusEl.innerHTML = '<span class="sdot"></span>연결됨';
+      document.getElementById('redis-info').style.display = 'none';
+    } else {
+      statusEl.className = 'status-chip s-bad';
+      statusEl.innerHTML = '<span class="sdot"></span>연결 안 됨';
+      document.getElementById('redis-info').style.display = 'block';
+    }
+  } catch {
+    statusEl.className = 'status-chip s-bad';
+    statusEl.innerHTML = '<span class="sdot"></span>확인 실패';
+  }
+}
+
+// 초기 로드
+checkRedisStatus();
+</script>
+</body>
+</html>
