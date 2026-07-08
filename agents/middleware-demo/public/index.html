@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LangChain Agent Middleware 실습</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#e2e6ef;color:#1e2235;min-height:100vh}
+
+  header{background:#fff;border-bottom:1px solid #c8cedd;padding:12px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  header h1{font-size:.96rem;font-weight:700}
+  .pkg{font-family:monospace;font-size:.67rem;background:#e2e6ef;border:1px solid #c8cedd;padding:2px 8px;border-radius:4px;color:#556}
+
+  .layout{display:grid;grid-template-columns:320px 1fr;gap:14px;max-width:1100px;margin:18px auto;padding:0 14px 48px}
+  @media(max-width:800px){.layout{grid-template-columns:1fr}}
+
+  /* Card */
+  .card{background:#fff;border:1px solid #c8cedd;border-radius:10px;overflow:hidden;margin-bottom:13px}
+  .card-head{padding:12px 16px 10px;border-bottom:1px solid #eaedf4;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .card-title{font-size:.85rem;font-weight:700;margin-bottom:1px}
+  .card-desc{font-size:.72rem;color:#778;line-height:1.45}
+  .card-body{padding:14px 16px}
+
+  .badge{font-family:monospace;font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap;flex-shrink:0}
+  .b-blue{background:#dbeafe;color:#1d4ed8}
+  .b-green{background:#dcfce7;color:#15803d}
+  .b-purple{background:#ede9fe;color:#6d28d9}
+  .b-orange{background:#ffedd5;color:#c2410c}
+  .b-red{background:#fee2e2;color:#b91c1c}
+  .b-gray{background:#f3f4f6;color:#374151}
+
+  /* Middleware config cards */
+  .mw-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mw-card{border-radius:8px;padding:10px 12px;border:1px solid transparent}
+  .mw1{background:#eff6ff;border-color:#bfdbfe}
+  .mw2{background:#faf5ff;border-color:#e9d5ff}
+  .mw3{background:#f0fdf4;border-color:#bbf7d0}
+  .mw4{background:#fff7ed;border-color:#fed7aa}
+  .mw-icon{font-size:1.2rem;margin-bottom:4px}
+  .mw-name{font-family:monospace;font-size:.68rem;font-weight:700;margin-bottom:2px}
+  .mw1 .mw-name{color:#1d4ed8}.mw2 .mw-name{color:#6d28d9}
+  .mw3 .mw-name{color:#15803d}.mw4 .mw-name{color:#c2410c}
+  .mw-desc{font-size:.7rem;color:#556;line-height:1.35}
+
+  /* Form */
+  label{display:block;font-size:.73rem;color:#556;font-weight:600;margin-bottom:3px}
+  input[type="text"],input[type="number"],textarea,select{
+    width:100%;border:1px solid #c8cedd;border-radius:6px;padding:7px 10px;
+    font-size:.82rem;font-family:inherit;color:#1e2235;background:#f6f8fc;
+    outline:none;transition:border-color .15s,box-shadow .15s
+  }
+  input:focus,textarea:focus,select:focus{border-color:#2a4fcc;box-shadow:0 0 0 3px rgba(42,79,204,.1);background:#fff}
+  textarea{resize:vertical;min-height:62px;line-height:1.5}
+  .row{display:flex;gap:8px;align-items:flex-end;margin-bottom:10px}
+  .fg{flex:1}
+
+  /* Toggle */
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f4}
+  .toggle-row:last-child{border-bottom:none}
+  .toggle-label{font-size:.78rem;color:#334;font-weight:500}
+  .toggle-sub{font-size:.68rem;color:#889;margin-top:1px}
+  .toggle{position:relative;width:38px;height:20px;flex-shrink:0}
+  .toggle input{opacity:0;width:0;height:0}
+  .slider{position:absolute;inset:0;background:#ccc;border-radius:20px;cursor:pointer;transition:.3s}
+  .slider:before{content:'';position:absolute;height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+  input:checked+.slider{background:#2a4fcc}
+  input:checked+.slider:before{transform:translateX(18px)}
+
+  /* Range */
+  .range-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  input[type="range"]{flex:1;accent-color:#2a4fcc}
+  .range-val{font-family:monospace;font-size:.78rem;font-weight:700;color:#2a4fcc;min-width:24px;text-align:center}
+
+  /* Buttons */
+  .btn{padding:8px 16px;border:none;border-radius:6px;font-size:.81rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s,transform .1s;white-space:nowrap}
+  .btn:hover:not(:disabled){opacity:.85;transform:translateY(-1px)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn-blue{background:#2a4fcc;color:#fff}
+  .btn-green{background:#16a34a;color:#fff}
+  .btn-red{background:#dc2626;color:#fff}
+  .btn-gray{background:#6b7280;color:#fff}
+  .btn-orange{background:#ea580c;color:#fff}
+
+  /* Stats bar */
+  .stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+  .stat-item{background:#f6f8fc;border:1px solid #dde1ec;border-radius:7px;padding:8px 10px;text-align:center}
+  .stat-val{font-family:monospace;font-size:1.1rem;font-weight:700;color:#2a4fcc}
+  .stat-label{font-size:.65rem;color:#889;margin-top:1px}
+
+  /* Human-in-the-loop approval panel */
+  .approval-panel{background:#fffbeb;border:2px solid #f59e0b;border-radius:9px;padding:14px 16px;margin-bottom:13px;display:none}
+  .approval-panel.show{display:block}
+  .approval-title{font-size:.85rem;font-weight:700;color:#92400e;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+  .approval-tool{font-family:monospace;font-size:.8rem;background:#fef3c7;padding:6px 10px;border-radius:5px;margin-bottom:10px;color:#78350f}
+  .approval-btns{display:flex;gap:8px}
+
+  /* Middleware log */
+  .log-wrap{display:flex;flex-direction:column;gap:6px;max-height:380px;overflow-y:auto}
+  .log-wrap::-webkit-scrollbar{width:4px}
+  .log-wrap::-webkit-scrollbar-thumb{background:#dde1ec;border-radius:2px}
+
+  .log-item{border-radius:7px;padding:9px 12px;font-size:.78rem;line-height:1.5;border:1px solid transparent}
+  .log-item.pass {background:#f0fdf4;border-color:#bbf7d0;color:#14532d}
+  .log-item.info {background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
+  .log-item.warn {background:#fffbeb;border-color:#fde68a;color:#92400e}
+  .log-item.block{background:#fef2f2;border-color:#fecaca;color:#7f1d1d}
+
+  .log-header{display:flex;align-items:center;gap:7px;margin-bottom:4px;flex-wrap:wrap}
+  .log-mw{font-family:monospace;font-size:.67rem;font-weight:700;padding:1px 6px;border-radius:3px}
+  .pass  .log-mw{background:#bbf7d0;color:#15803d}
+  .info  .log-mw{background:#bfdbfe;color:#1d4ed8}
+  .warn  .log-mw{background:#fde68a;color:#92400e}
+  .block .log-mw{background:#fecaca;color:#b91c1c}
+  .log-ts{font-size:.65rem;color:#aab;margin-left:auto}
+  .log-icon{font-size:.85rem}
+  .log-msg{font-weight:600;margin-bottom:2px}
+  .log-detail{font-size:.73rem;opacity:.75;white-space:pre-wrap;word-break:break-word}
+
+  /* Agent output */
+  .step-wrap{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+  .step-item{border-radius:8px;padding:10px 13px;font-size:.8rem;line-height:1.55;border:1px solid transparent}
+  .step-start   {background:#f6f8fc;border-color:#e0e4ef;color:#556}
+  .step-thinking{background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a}
+  .step-tool    {background:#faf5ff;border-color:#e9d5ff;color:#4c1d95}
+  .step-result  {background:#f0fdf4;border-color:#bbf7d0;color:#14532d}
+  .step-answer  {background:#fff;border-color:#c8cedd;color:#1e2235}
+  .step-blocked {background:#fef2f2;border-color:#fecaca;color:#7f1d1d;font-weight:600}
+  .step-icon{margin-right:6px}
+  .step-label{font-family:monospace;font-size:.66rem;font-weight:700;opacity:.6;margin-bottom:3px}
+  .step-content{word-break:break-word;white-space:pre-wrap}
+  .step-args{font-family:monospace;font-size:.7rem;background:rgba(0,0,0,.05);padding:2px 7px;border-radius:4px;margin-top:3px;display:inline-block}
+
+  .final-box{background:#fff;border:1px solid #c8cedd;border-radius:8px;padding:13px 15px;font-size:.875rem;line-height:1.75;white-space:pre-wrap;word-break:break-word}
+
+  .result-wrap{display:none}.result-wrap.show{display:block}
+  .divider{height:1px;background:#eaedf4;margin:12px 0}
+  .rl{font-size:.65rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#889;margin-bottom:6px}
+  .err-box{background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:9px 12px;font-size:.77rem;color:#dc2626;display:none;margin-top:9px}
+
+  .cursor{display:inline-block;width:7px;height:14px;background:#6d28d9;animation:blink .7s step-end infinite;vertical-align:middle;margin-left:2px;border-radius:1px}
+  @keyframes blink{50%{opacity:0}}
+  .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:5px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .timer{font-family:monospace;font-size:.7rem;color:#889}
+  .empty-log{text-align:center;padding:24px 16px;color:#aab;font-size:.78rem}
+
+  /* Preset */
+  .preset-wrap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .preset-btn{background:#f0f2f8;border:1px solid #dde1ec;border-radius:16px;padding:4px 11px;font-size:.74rem;cursor:pointer;font-family:inherit;color:#334;transition:all .15s}
+  .preset-btn:hover{background:#e0e7ff;border-color:#a5b4fc;color:#3730a3}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LangChain Agent Middleware 실습</h1>
+  <span class="pkg">@langchain/langgraph · createReactAgent</span>
+  <span class="pkg">4 Middleware Pattern</span>
+</header>
+
+<div class="layout">
+
+  <!-- ── LEFT: 설정 패널 ── -->
+  <div>
+
+    <!-- 미들웨어 소개 -->
+    <div class="card">
+      <div class="card-head">
+        <div><div class="card-title">4가지 Middleware</div>
+          <div class="card-desc">Agent 실행 파이프라인에 삽입되어 동작을 제어합니다</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mw-grid">
+          <div class="mw-card mw1">
+            <div class="mw-icon">🔢</div>
+            <div class="mw-name">modelCallLimit</div>
+            <div class="mw-desc">LLM 호출 횟수를 제한합니다</div>
+          </div>
+          <div class="mw-card mw2">
+            <div class="mw-icon">🛠️</div>
+            <div class="mw-name">toolCallLimit</div>
+            <div class="mw-desc">Tool 실행 횟수를 제한합니다</div>
+          </div>
+          <div class="mw-card mw3">
+            <div class="mw-icon">📝</div>
+            <div class="mw-name">summarization</div>
+            <div class="mw-desc">긴 대화를 자동으로 요약합니다</div>
+          </div>
+          <div class="mw-card mw4">
+            <div class="mw-icon">👤</div>
+            <div class="mw-name">humanInTheLoop</div>
+            <div class="mw-desc">Tool 실행 전 사람의 승인을 받습니다</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 미들웨어 설정 -->
+    <div class="card">
+      <div class="card-head">
+        <div><div class="card-title">미들웨어 설정</div></div>
+        <span class="badge b-gray">Config</span>
+      </div>
+      <div class="card-body">
+
+        <label style="margin-bottom:4px">🔢 LLM 호출 한도 (modelCallLimit)</label>
+        <div class="range-row" style="margin-bottom:12px">
+          <input type="range" id="model-limit" min="1" max="10" value="5"
+            oninput="document.getElementById('model-limit-val').textContent=this.value;updateConfig()"/>
+          <span class="range-val" id="model-limit-val">5</span>회
+        </div>
+
+        <label style="margin-bottom:4px">🛠️ Tool 호출 한도 (toolCallLimit)</label>
+        <div class="range-row" style="margin-bottom:12px">
+          <input type="range" id="tool-limit" min="1" max="10" value="3"
+            oninput="document.getElementById('tool-limit-val').textContent=this.value;updateConfig()"/>
+          <span class="range-val" id="tool-limit-val">3</span>회
+        </div>
+
+        <label style="margin-bottom:4px">📝 요약 기준 메시지 수 (summarization)</label>
+        <div class="range-row" style="margin-bottom:12px">
+          <input type="range" id="summ-threshold" min="2" max="10" value="4"
+            oninput="document.getElementById('summ-val').textContent=this.value;updateConfig()"/>
+          <span class="range-val" id="summ-val">4</span>개
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">👤 Human-in-the-Loop</div>
+            <div class="toggle-sub">Tool 실행 전 승인 요청</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="hitl-toggle" onchange="updateConfig()"/>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div style="margin-top:10px;display:flex;gap:7px">
+          <button class="btn btn-blue" style="flex:1" onclick="updateConfig()">설정 적용</button>
+          <button class="btn btn-gray" onclick="resetSession()">세션 초기화</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 사용 횟수 통계 -->
+    <div class="card">
+      <div class="card-head">
+        <div><div class="card-title">실행 통계</div></div>
+        <button class="btn btn-gray" style="padding:4px 10px;font-size:.7rem" onclick="loadStatus()">새로고침</button>
+      </div>
+      <div class="card-body">
+        <div class="stats-bar">
+          <div class="stat-item">
+            <div class="stat-val" id="stat-model">0</div>
+            <div class="stat-label">LLM 호출</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-tool" style="color:#6d28d9">0</div>
+            <div class="stat-label">Tool 실행</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-msg" style="color:#15803d">0</div>
+            <div class="stat-label">총 메시지</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-val" id="stat-summ" style="color:#c2410c">0</div>
+            <div class="stat-label">요약 횟수</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Human-in-the-Loop 승인 패널 -->
+    <div class="approval-panel" id="approval-panel">
+      <div class="approval-title">👤 승인 요청 — humanInTheLoopMiddleware</div>
+      <div class="approval-tool" id="approval-detail">검색 쿼리: ...</div>
+      <div style="font-size:.75rem;color:#92400e;margin-bottom:10px">
+        아래 도구가 실행되려 합니다. 허용하시겠습니까?
+      </div>
+      <div class="approval-btns">
+        <button class="btn btn-green" style="flex:1" onclick="sendApproval(true)">✅ 승인</button>
+        <button class="btn btn-red" style="flex:1" onclick="sendApproval(false)">❌ 거절</button>
+      </div>
+    </div>
+
+  </div><!-- LEFT -->
+
+  <!-- ── RIGHT: 실행 패널 ── -->
+  <div>
+
+    <!-- 질문 입력 -->
+    <div class="card">
+      <div class="card-head">
+        <div><div class="card-title">Agent 실행</div>
+          <div class="card-desc">뉴스 검색 도구를 실행하는 Agent에 4개 미들웨어가 순서대로 적용됩니다</div>
+        </div>
+        <span class="badge b-purple">ReAct + Middleware</span>
+      </div>
+      <div class="card-body">
+        <div class="preset-wrap">
+          <button class="preset-btn" onclick="setQ(this)">최신 AI 뉴스 알려줘</button>
+          <button class="preset-btn" onclick="setQ(this)">GPT-5 관련 뉴스 있어?</button>
+          <button class="preset-btn" onclick="setQ(this)">오늘 테크 뉴스 요약해줘</button>
+          <button class="preset-btn" onclick="setQ(this)">삼성 반도체 최신 소식</button>
+          <button class="preset-btn" onclick="setQ(this)">LLM 모델 최신 동향</button>
+        </div>
+        <div class="row">
+          <div class="fg">
+            <label>질문 입력 (Ctrl+Enter로 실행)</label>
+            <textarea id="question" placeholder="뉴스를 검색할 질문을 입력하세요..."></textarea>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-blue" id="run-btn" onclick="runAgent()" style="flex:1">
+            ▶ Agent 실행
+          </button>
+          <button class="btn btn-gray" onclick="clearResult()">초기화</button>
+          <span class="timer" id="timer"></span>
+        </div>
+        <div class="err-box" id="run-err"></div>
+      </div>
+    </div>
+
+    <!-- 실행 결과 -->
+    <div class="result-wrap" id="result-wrap">
+
+      <!-- 미들웨어 로그 -->
+      <div class="card">
+        <div class="card-head">
+          <div><div class="card-title">미들웨어 실행 로그</div>
+            <div class="card-desc">각 미들웨어가 순서대로 실행된 결과를 실시간으로 표시합니다</div>
+          </div>
+        </div>
+        <div class="card-body" style="padding:10px 14px">
+          <div class="log-wrap" id="mw-log">
+            <div class="empty-log">실행 후 로그가 표시됩니다</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent 실행 흐름 -->
+      <div class="card">
+        <div class="card-head">
+          <div><div class="card-title">Agent 실행 흐름</div></div>
+        </div>
+        <div class="card-body" style="padding:10px 14px">
+          <div class="step-wrap" id="step-wrap"></div>
+          <div class="rl" id="ans-label" style="display:none">최종 답변</div>
+          <div class="final-box" id="final-ans" style="display:none"></div>
+        </div>
+      </div>
+
+    </div><!-- result-wrap -->
+
+  </div><!-- RIGHT -->
+</div><!-- layout -->
+
+<script>
+const SESSION_ID = 'mw-' + Math.random().toString(36).slice(2, 7);
+let startTime = 0;
+let timerInterval = null;
+
+// ── 설정 초기화 ──────────────────────────────────
+async function updateConfig() {
+  const config = {
+    modelRunLimit:      parseInt(document.getElementById('model-limit').value),
+    toolRunLimit:       parseInt(document.getElementById('tool-limit').value),
+    summarizeThreshold: parseInt(document.getElementById('summ-threshold').value),
+    requireApproval:    document.getElementById('hitl-toggle').checked,
+  };
+  await fetch('/api/session/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: SESSION_ID, config }),
+  });
+}
+
+async function loadStatus() {
+  const r = await fetch(`/api/session/status?sessionId=${SESSION_ID}`);
+  const d = await r.json();
+  document.getElementById('stat-model').textContent = d.modelCallCount;
+  document.getElementById('stat-tool').textContent  = d.toolCallCount;
+  document.getElementById('stat-msg').textContent   = d.messageCount;
+  document.getElementById('stat-summ').textContent  = d.summaryCount;
+
+  // Human approval pending
+  if (d.pendingApproval?.status === 'pending') {
+    showApproval(d.pendingApproval);
+  }
+}
+
+async function resetSession() {
+  await fetch('/api/session/reset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: SESSION_ID }),
+  });
+  loadStatus();
+  clearResult();
+  alert('세션이 초기화되었습니다.');
+}
+
+// ── Preset ───────────────────────────────────────
+function setQ(btn) {
+  document.getElementById('question').value = btn.textContent;
+  document.querySelectorAll('.preset-btn').forEach(b => b.style.background = '');
+  btn.style.background = '#c7d2fe';
+}
+
+// ── Human-in-the-Loop ────────────────────────────
+function showApproval(data) {
+  const panel = document.getElementById('approval-panel');
+  panel.classList.add('show');
+  document.getElementById('approval-detail').textContent =
+    `Tool: ${data.toolName}\n인자: ${JSON.stringify(data.toolArgs, null, 2)}`;
+}
+
+async function sendApproval(approved) {
+  document.getElementById('approval-panel').classList.remove('show');
+  await fetch('/api/session/approve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId: SESSION_ID, approved }),
+  });
+}
+
+// ── Log rendering ─────────────────────────────────
+const MW_ICONS = { pass: '✅', info: 'ℹ️', warn: '⚠️', block: '🚫' };
+
+function addLog(log) {
+  const wrap = document.getElementById('mw-log');
+  const empty = wrap.querySelector('.empty-log');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = `log-item ${log.level}`;
+  div.innerHTML = `
+    <div class="log-header">
+      <span class="log-icon">${MW_ICONS[log.level] ?? '•'}</span>
+      <span class="log-mw">${log.middleware}</span>
+      <span class="log-ts">${log.ts}</span>
+    </div>
+    <div class="log-msg">${log.message}</div>
+    ${log.detail ? `<div class="log-detail">${log.detail}</div>` : ''}`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+// ── Step rendering ────────────────────────────────
+function addStep(type, data) {
+  const wrap = document.getElementById('step-wrap');
+  const div = document.createElement('div');
+  div.className = `step-item step-${type}`;
+
+  const map = {
+    start:    ['🤖', 'AGENT START',    data.message ?? ''],
+    thinking: ['💭', 'TOOL CALL',      `<div>${data.tool}<span class="step-args">${JSON.stringify(data.args)}</span></div>`],
+    tool:     ['🔧', 'TOOL INVOKE',    data.content ?? ''],
+    result:   ['📋', 'TOOL RESULT',    (data.content ?? '').slice(0, 400) + (data.content?.length > 400 ? '...' : '')],
+    answer:   ['💬', 'FINAL ANSWER',   (data.content ?? '').slice(0, 120) + '...'],
+    blocked:  ['🚫', 'BLOCKED',        data.message ?? ''],
+  };
+  const [icon, label, content] = map[type] ?? ['•', type, ''];
+  div.innerHTML = `<div class="step-label">${icon} ${label}</div><div class="step-content">${content}</div>`;
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+// ── Timer ─────────────────────────────────────────
+function startTimer() {
+  startTime = Date.now();
+  timerInterval = setInterval(() => {
+    document.getElementById('timer').textContent = `⏱ ${((Date.now()-startTime)/1000).toFixed(1)}s`;
+  }, 100);
+}
+function stopTimer() {
+  clearInterval(timerInterval);
+}
+
+// ── Run Agent ─────────────────────────────────────
+async function runAgent() {
+  const question = document.getElementById('question').value.trim();
+  if (!question) return;
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>실행 중...';
+  document.getElementById('run-err').style.display = 'none';
+
+  // 결과 패널 초기화
+  document.getElementById('result-wrap').classList.add('show');
+  document.getElementById('mw-log').innerHTML = '<div class="empty-log">미들웨어 로그 수집 중...</div>';
+  document.getElementById('step-wrap').innerHTML = '';
+  const finalAns = document.getElementById('final-ans');
+  finalAns.style.display = 'none';
+  finalAns.textContent = '';
+  document.getElementById('ans-label').style.display = 'none';
+
+  startTimer();
+
+  try {
+    const es = new EventSource(`/api/agent/stream?question=${encodeURIComponent(question)}&sessionId=${SESSION_ID}`);
+
+    // Poll for human approval
+    const approvalPoll = setInterval(async () => {
+      const r = await fetch(`/api/session/status?sessionId=${SESSION_ID}`);
+      const d = await r.json();
+      if (d.pendingApproval?.status === 'pending') {
+        showApproval(d.pendingApproval);
+      } else {
+        document.getElementById('approval-panel').classList.remove('show');
+      }
+    }, 500);
+
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+
+      if (data.type === 'middleware') {
+        addLog(data.log);
+      } else if (data.type === 'start') {
+        addStep('start', data);
+      } else if (data.type === 'agent_thinking') {
+        addStep('thinking', data);
+      } else if (data.type === 'tool_call') {
+        addStep('tool', { content: `🔍 검색: "${data.args?.query}"` });
+      } else if (data.type === 'tool_result') {
+        addStep('result', data);
+      } else if (data.type === 'answer') {
+        document.getElementById('ans-label').style.display = 'block';
+        finalAns.style.display = 'block';
+        finalAns.innerHTML = data.content + '<span class="cursor"></span>';
+        addStep('answer', data);
+      } else if (data.type === 'blocked') {
+        addStep('blocked', data);
+        addLog({ middleware: 'Agent', level: 'block', message: data.message, ts: new Date().toLocaleTimeString('ko-KR') });
+      } else if (data.type === 'error') {
+        const el = document.getElementById('run-err');
+        el.textContent = '❌ ' + data.message;
+        el.style.display = 'block';
+      } else if (data.type === 'done') {
+        es.close();
+        clearInterval(approvalPoll);
+        stopTimer();
+        btn.disabled = false;
+        btn.textContent = '▶ Agent 실행';
+        // remove cursor
+        finalAns.innerHTML = finalAns.innerHTML.replace('<span class="cursor"></span>', '');
+        if (data.stats) {
+          document.getElementById('stat-model').textContent = data.stats.modelCalls;
+          document.getElementById('stat-tool').textContent  = data.stats.toolCalls;
+          document.getElementById('stat-msg').textContent   = data.stats.messages;
+        }
+        loadStatus();
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      clearInterval(approvalPoll);
+      stopTimer();
+      btn.disabled = false;
+      btn.textContent = '▶ Agent 실행';
+    };
+
+  } catch (err) {
+    stopTimer();
+    const el = document.getElementById('run-err');
+    el.textContent = '❌ ' + err.message;
+    el.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '▶ Agent 실행';
+  }
+}
+
+function clearResult() {
+  document.getElementById('result-wrap').classList.remove('show');
+  document.getElementById('step-wrap').innerHTML = '';
+  document.getElementById('mw-log').innerHTML = '<div class="empty-log">실행 후 로그가 표시됩니다</div>';
+  document.getElementById('final-ans').style.display = 'none';
+  document.getElementById('ans-label').style.display = 'none';
+  document.getElementById('question').value = '';
+  document.getElementById('run-err').style.display = 'none';
+  document.getElementById('timer').textContent = '';
+  document.querySelectorAll('.preset-btn').forEach(b => b.style.background = '');
+}
+
+// Ctrl+Enter
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'Enter') runAgent();
+});
+
+// 초기 로드
+updateConfig();
+loadStatus();
+setInterval(loadStatus, 3000);
+</script>
+</body>
+</html>
