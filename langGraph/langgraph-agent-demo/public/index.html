@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LangChain Agent vs LangGraph 비교</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#e2e6ef;color:#1e2235;min-height:100vh}
+
+  header{background:#fff;border-bottom:1px solid #c8cedd;padding:12px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  header h1{font-size:.96rem;font-weight:700}
+  .pkg{font-family:monospace;font-size:.67rem;background:#e2e6ef;border:1px solid #c8cedd;padding:2px 7px;border-radius:4px;color:#556}
+
+  /* ── Question bar ── */
+  .q-bar{background:#fff;border-bottom:1px solid #c8cedd;padding:12px 24px;display:flex;gap:10px;align-items:flex-end}
+  .q-bar .fg{flex:1}
+  .q-bar label{display:block;font-size:.73rem;color:#556;font-weight:600;margin-bottom:4px}
+  .q-bar input{width:100%;border:1px solid #c8cedd;border-radius:6px;padding:8px 12px;font-size:.85rem;font-family:inherit;color:#1e2235;background:#f6f8fc;outline:none;transition:border-color .15s}
+  .q-bar input:focus{border-color:#2a4fcc;box-shadow:0 0 0 3px rgba(42,79,204,.1);background:#fff}
+
+  .preset-wrap{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+  .preset-btn{background:#f0f2f8;border:1px solid #dde1ec;border-radius:14px;padding:3px 10px;font-size:.72rem;cursor:pointer;font-family:inherit;color:#334;transition:all .15s}
+  .preset-btn:hover{background:#dbeafe;border-color:#93c5fd;color:#1e40af}
+  .preset-btn.on{background:#2a4fcc;color:#fff;border-color:#2a4fcc}
+
+  /* ── Run button ── */
+  .btn{padding:8px 18px;border:none;border-radius:6px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:opacity .15s,transform .1s}
+  .btn:hover:not(:disabled){opacity:.85;transform:translateY(-1px)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn-both{background:linear-gradient(135deg,#2a4fcc,#7c3aed);color:#fff}
+  .btn-agent{background:#2a4fcc;color:#fff}
+  .btn-lg{background:#7c3aed;color:#fff}
+  .btn-gray{background:#6b7280;color:#fff;padding:8px 12px}
+
+  .timer{font-family:monospace;font-size:.7rem;color:#889}
+  .spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:5px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── Layout ── */
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:1180px;margin:16px auto;padding:0 14px 48px}
+  @media(max-width:760px){.compare{grid-template-columns:1fr}}
+
+  /* ── Panel ── */
+  .panel{display:flex;flex-direction:column;gap:11px}
+
+  /* ── Card ── */
+  .card{background:#fff;border:1px solid #c8cedd;border-radius:10px;overflow:hidden}
+  .card-head{padding:11px 15px 9px;border-bottom:1px solid #eaedf4;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .card-title{font-size:.84rem;font-weight:700}
+  .card-desc{font-size:.71rem;color:#778;line-height:1.4;margin-top:1px}
+  .card-body{padding:13px 15px}
+
+  .badge{font-family:monospace;font-size:.64rem;font-weight:700;padding:2px 7px;border-radius:4px;white-space:nowrap}
+  .ba{background:#dbeafe;color:#1d4ed8}
+  .blg{background:#ede9fe;color:#6d28d9}
+  .bg{background:#dcfce7;color:#15803d}
+  .bo{background:#ffedd5;color:#c2410c}
+
+  /* ── Code blocks ── */
+  .code-block{background:#1a1d2e;border-radius:7px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:.72rem;line-height:1.8;color:#c8d0f0;overflow-x:auto;white-space:pre}
+  .kw{color:#bb9af7}.fn{color:#7dcfff}.str{color:#9ece6a}.cmt{color:#565f89;font-style:italic}.cls{color:#e0af68}.num{color:#ff9e64}
+
+  /* ── Arch flow ── */
+  .arch-flow{display:flex;flex-direction:column;gap:0}
+  .arch-step{display:flex;align-items:stretch;gap:0}
+  .arch-dot-col{display:flex;flex-direction:column;align-items:center;width:28px;flex-shrink:0}
+  .arch-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:6px}
+  .arch-line{width:2px;flex:1;min-height:12px}
+  .arch-content{flex:1;padding:5px 0 10px 10px}
+  .arch-label{font-size:.72rem;font-weight:700;margin-bottom:2px}
+  .arch-sub{font-size:.69rem;color:#778;line-height:1.4}
+
+  /* agent colors */
+  .ac .arch-dot{background:#2a4fcc}
+  .ac .arch-line{background:#bfdbfe}
+  .ac .arch-label{color:#1d4ed8}
+  /* langgraph colors */
+  .lc .arch-dot{background:#7c3aed}
+  .lc .arch-line{background:#e9d5ff}
+  .lc .arch-label{color:#6d28d9}
+
+  /* ── Diff table ── */
+  .diff-table{width:100%;border-collapse:collapse;font-size:.77rem}
+  .diff-table th{background:#f6f8fc;padding:7px 10px;text-align:left;font-weight:700;font-size:.7rem;color:#556;border-bottom:2px solid #eaedf4}
+  .diff-table td{padding:7px 10px;border-bottom:1px solid #f0f2f8;vertical-align:top;line-height:1.5}
+  .diff-table tr:last-child td{border-bottom:none}
+  .diff-table td:first-child{font-weight:600;color:#334;white-space:nowrap;width:38%}
+  .tag-a{display:inline-block;background:#dbeafe;color:#1d4ed8;font-size:.65rem;font-weight:700;padding:1px 5px;border-radius:3px;font-family:monospace}
+  .tag-l{display:inline-block;background:#ede9fe;color:#6d28d9;font-size:.65rem;font-weight:700;padding:1px 5px;border-radius:3px;font-family:monospace}
+
+  /* ── Execution trace ── */
+  .trace-wrap{display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto}
+  .trace-wrap::-webkit-scrollbar{width:4px}
+  .trace-wrap::-webkit-scrollbar-thumb{background:#dde1ec;border-radius:2px}
+
+  .trace-item{border-radius:7px;padding:9px 12px;font-size:.78rem;line-height:1.5;border:1px solid transparent;transition:all .2s}
+  .t-arch  {background:#f6f8fc;border-color:#e0e4ef;color:#445}
+  .t-node  {background:#faf5ff;border-color:#e9d5ff;color:#4c1d95}
+  .t-edge  {background:#fffbeb;border-color:#fde68a;color:#78350f}
+  .t-state {background:#f0fdf4;border-color:#bbf7d0;color:#14532d}
+  .t-trace {background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a}
+  .t-answer{background:#fff;border:1px solid #c8cedd;color:#1e2235}
+  .t-error {background:#fef2f2;border-color:#fecaca;color:#991b1b}
+
+  .trace-label{font-family:monospace;font-size:.65rem;font-weight:700;opacity:.65;margin-bottom:3px}
+  .trace-msg{font-weight:600;word-break:break-word}
+  .trace-sub{font-size:.72rem;opacity:.75;margin-top:3px;white-space:pre-wrap;word-break:break-word}
+
+  .final-box{background:#fff;border:1px solid #c8cedd;border-radius:8px;padding:13px 15px;font-size:.875rem;line-height:1.75;white-space:pre-wrap;word-break:break-word;margin-top:10px}
+
+  .rl{font-size:.64rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#889;margin-bottom:6px;margin-top:11px}
+  .empty{text-align:center;padding:22px 14px;color:#bbb;font-size:.78rem}
+  .err-box{background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:8px 12px;font-size:.76rem;color:#dc2626;margin-top:8px;display:none}
+
+  /* ── Status badge ── */
+  .status-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .status-chip{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:12px}
+  .s-idle{background:#f3f4f6;color:#6b7280}
+  .s-run {background:#dbeafe;color:#1d4ed8}
+  .s-done{background:#dcfce7;color:#15803d}
+  .s-err {background:#fee2e2;color:#b91c1c}
+  .sdot{width:5px;height:5px;border-radius:50%;background:currentColor}
+
+  /* Graph viz */
+  .graph-viz{display:flex;flex-direction:column;gap:4px;align-items:center;padding:12px 0}
+  .gv-node{padding:6px 18px;border-radius:20px;font-size:.74rem;font-weight:700;border:2px solid transparent;transition:all .3s}
+  .gv-node.active{transform:scale(1.08);box-shadow:0 3px 10px rgba(0,0,0,.12)}
+  .gv-arrow{font-size:.85rem;color:#bbb;line-height:1}
+  .gv-cond{display:flex;align-items:center;gap:8px;font-size:.68rem;color:#78350f;background:#fffbeb;padding:4px 10px;border-radius:6px;border:1px solid #fde68a}
+
+  .gn-start {background:#dbeafe;color:#1d4ed8;border-color:#93c5fd}
+  .gn-llm   {background:#ede9fe;color:#6d28d9;border-color:#c4b5fd}
+  .gn-tool  {background:#dcfce7;color:#15803d;border-color:#86efac}
+  .gn-end   {background:#f3f4f6;color:#374151;border-color:#d1d5db}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LangChain Agent vs LangGraph 워크플로우 비교</h1>
+  <span class="pkg">createReactAgent</span>
+  <span class="pkg">StateGraph</span>
+  <span class="pkg">langchain.js 1.x</span>
+</header>
+
+<!-- 질문 입력 -->
+<div class="q-bar">
+  <div class="fg">
+    <div class="preset-wrap">
+      <button class="preset-btn" onclick="setQ(this,'15 곱하기 37은?')">계산 질문</button>
+      <button class="preset-btn" onclick="setQ(this,'서울 날씨 알려줘')">날씨 질문</button>
+      <button class="preset-btn" onclick="setQ(this,'서울 날씨와 25 * 48 + 100을 계산해줘')">복합 질문</button>
+      <button class="preset-btn on" onclick="setQ(this,'15 곱하기 37은 얼마야?')">기본 질문</button>
+    </div>
+    <label>질문 입력 (두 방식에 동일하게 전달됩니다)</label>
+    <input type="text" id="question" value="15 곱하기 37은 얼마야?" onkeydown="if(event.key==='Enter')runBoth()" />
+  </div>
+  <button class="btn btn-both" id="run-both" onclick="runBoth()">▶ 동시 실행</button>
+  <button class="btn btn-gray" onclick="clearAll()">초기화</button>
+  <span class="timer" id="timer"></span>
+</div>
+
+<div class="compare">
+
+  <!-- ── LEFT: LangChain Agent ── -->
+  <div class="panel" id="panel-agent">
+
+    <!-- 개념 설명 -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">🤖 LangChain Agent <span class="badge ba">createReactAgent</span></div>
+          <div class="card-desc">블랙박스형 — 내부 루프가 자동으로 관리됨</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="code-block"><span class="kw">const</span> agent = <span class="fn">createReactAgent</span>({
+  llm: model,
+  tools: [calculatorTool, weatherTool],
+});
+
+<span class="cmt">// 단순 호출 — 내부 루프는 자동</span>
+<span class="kw">const</span> result = <span class="kw">await</span> agent.<span class="fn">stream</span>(
+  { messages: [<span class="kw">new</span> <span class="cls">HumanMessage</span>(question)] },
+  { streamMode: <span class="str">"updates"</span> }
+);</div>
+
+        <!-- 아키텍처 흐름 -->
+        <div class="rl" style="margin-top:12px">실행 구조</div>
+        <div class="arch-flow" id="agent-arch">
+          <div class="arch-step ac">
+            <div class="arch-dot-col"><div class="arch-dot"></div><div class="arch-line"></div></div>
+            <div class="arch-content"><div class="arch-label">입력</div><div class="arch-sub">HumanMessage → createReactAgent</div></div>
+          </div>
+          <div class="arch-step ac">
+            <div class="arch-dot-col"><div class="arch-dot"></div><div class="arch-line"></div></div>
+            <div class="arch-content"><div class="arch-label">내부 루프 (자동)</div><div class="arch-sub">Reason → Act → Observe 반복<br>개발자가 상태를 직접 볼 수 없음</div></div>
+          </div>
+          <div class="arch-step ac">
+            <div class="arch-dot-col"><div class="arch-dot"></div></div>
+            <div class="arch-content"><div class="arch-label">출력</div><div class="arch-sub">최종 AIMessage 반환</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 실행 결과 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">실행 결과</div>
+        <div class="status-chip s-idle" id="status-agent"><span class="sdot"></span>대기</div>
+      </div>
+      <div class="card-body">
+        <div class="trace-wrap" id="agent-trace">
+          <div class="empty">실행 버튼을 누르면 Agent 실행 과정이 표시됩니다</div>
+        </div>
+        <div id="agent-answer" style="display:none">
+          <div class="rl">최종 답변</div>
+          <div class="final-box" id="agent-final"></div>
+        </div>
+        <div class="err-box" id="agent-err"></div>
+      </div>
+    </div>
+
+  </div><!-- LEFT -->
+
+  <!-- ── RIGHT: LangGraph ── -->
+  <div class="panel" id="panel-lg">
+
+    <!-- 개념 설명 -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">🕸️ LangGraph <span class="badge blg">StateGraph</span></div>
+          <div class="card-desc">명시적 그래프형 — 상태·노드·엣지를 직접 정의</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="code-block"><span class="kw">const</span> graph = <span class="kw">new</span> <span class="cls">StateGraph</span>(GraphState)
+  .<span class="fn">addNode</span>(<span class="str">"llm_node"</span>, llmNode)
+  .<span class="fn">addNode</span>(<span class="str">"tool_node"</span>, toolNode)
+  .<span class="fn">addEdge</span>(<span class="cls">START</span>, <span class="str">"llm_node"</span>)
+  .<span class="fn">addConditionalEdges</span>(<span class="str">"llm_node"</span>, shouldContinue,
+    { tools: <span class="str">"tool_node"</span>, [<span class="cls">END</span>]: <span class="cls">END</span> })
+  .<span class="fn">addEdge</span>(<span class="str">"tool_node"</span>, <span class="str">"llm_node"</span>)
+  .<span class="fn">compile</span>({ checkpointer });</div>
+
+        <!-- Graph 시각화 -->
+        <div class="rl" style="margin-top:12px">그래프 구조</div>
+        <div class="graph-viz">
+          <div class="gv-node gn-start" id="gv-start">START</div>
+          <div class="gv-arrow">↓</div>
+          <div class="gv-node gn-llm" id="gv-llm">llm_node</div>
+          <div class="gv-arrow">↓ 조건 분기</div>
+          <div class="gv-cond">tool_calls 있음? → tool_node &nbsp;|&nbsp; 없음? → END</div>
+          <div style="display:flex;gap:16px;align-items:flex-start;margin-top:4px">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+              <div class="gv-arrow">↓</div>
+              <div class="gv-node gn-tool" id="gv-tool">tool_node</div>
+              <div class="gv-arrow">↑ 루프</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:24px">
+              <div class="gv-arrow">↓</div>
+              <div class="gv-node gn-end" id="gv-end">END</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 실행 결과 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">실행 결과</div>
+        <div class="status-chip s-idle" id="status-lg"><span class="sdot"></span>대기</div>
+      </div>
+      <div class="card-body">
+        <div class="trace-wrap" id="lg-trace">
+          <div class="empty">실행 버튼을 누르면 LangGraph 상태 변화가 표시됩니다</div>
+        </div>
+        <div id="lg-answer" style="display:none">
+          <div class="rl">최종 답변</div>
+          <div class="final-box" id="lg-final"></div>
+        </div>
+        <div class="err-box" id="lg-err"></div>
+      </div>
+    </div>
+
+  </div><!-- RIGHT -->
+
+</div><!-- compare -->
+
+<!-- 비교 테이블 (하단) -->
+<div style="max-width:1180px;margin:0 auto 40px;padding:0 14px">
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">📊 Agent vs LangGraph 핵심 차이점</div>
+    </div>
+    <div class="card-body">
+      <table class="diff-table">
+        <thead>
+          <tr><th>항목</th><th><span class="tag-a">Agent</span> createReactAgent</th><th><span class="tag-l">LangGraph</span> StateGraph</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>상태 관리</td><td>자동 (숨겨짐)</td><td>명시적 State 정의, 직접 접근 가능</td></tr>
+          <tr><td>노드/엣지</td><td>내부에 고정 (변경 불가)</td><td>개발자가 직접 추가·제어</td></tr>
+          <tr><td>조건 분기</td><td>자동 (ReAct 패턴만)</td><td>addConditionalEdges로 자유롭게 정의</td></tr>
+          <tr><td>루프 제어</td><td>자동 (recursionLimit만 설정)</td><td>엣지로 직접 루프 구성</td></tr>
+          <tr><td>체크포인팅</td><td>지원 (checkpointer 옵션)</td><td>지원 + 상태 저장 시점 직접 제어</td></tr>
+          <tr><td>투명성</td><td>낮음 (블랙박스)</td><td>높음 (각 노드 상태 완전 투명)</td></tr>
+          <tr><td>커스텀 상태</td><td>messages만</td><td>임의 필드 추가 가능 (Annotation)</td></tr>
+          <tr><td>적합한 경우</td><td>빠른 프로토타입, 단순 ReAct</td><td>복잡한 워크플로우, 정밀 제어 필요 시</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Preset ───────────────────────────────────────
+function setQ(btn, q) {
+  document.getElementById('question').value = q;
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+// ── Status ───────────────────────────────────────
+function setStatus(id, state) {
+  const el = document.getElementById(id);
+  const map = {
+    idle: ['s-idle', '대기'],
+    run:  ['s-run',  '실행 중'],
+    done: ['s-done', '완료'],
+    err:  ['s-err',  '오류'],
+  };
+  const [cls, text] = map[state] ?? ['s-idle', state];
+  el.className = `status-chip ${cls}`;
+  el.innerHTML = `<span class="sdot"></span>${text}`;
+}
+
+// ── Graph node highlight ──────────────────────────
+function highlightNode(nodeId) {
+  ['gv-start','gv-llm','gv-tool','gv-end'].forEach(id => {
+    document.getElementById(id)?.classList.remove('active');
+  });
+  const el = document.getElementById(`gv-${nodeId}`);
+  if (el) el.classList.add('active');
+}
+
+// ── Trace rendering ───────────────────────────────
+function addTrace(containerId, type, data) {
+  const wrap = document.getElementById(containerId);
+  const empty = wrap.querySelector('.empty');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.className = `trace-item t-${type}`;
+
+  const icons = { arch:'🏗', node:'📦', edge:'➡️', state:'💾', trace:'🔍', answer:'💬', error:'❌' };
+  const labels = { arch:'ARCH', node:'NODE', edge:'EDGE', state:'STATE UPDATE', trace:'TOOL', answer:'ANSWER', error:'ERROR' };
+
+  let msg = '', sub = '';
+
+  if (type === 'arch') {
+    msg = data.step;
+    sub = data.desc ?? '';
+    if (data.graph_edges) sub += '\n' + data.graph_edges.join('\n');
+  } else if (type === 'node') {
+    msg = data.name;
+    sub = data.desc ?? '';
+    // highlight graph node
+    if (data.name === 'llm_node') highlightNode('llm');
+    if (data.name === 'tool_node') highlightNode('tool');
+  } else if (type === 'edge') {
+    msg = `${data.from} → ${data.to}`;
+    sub = data.reason ?? '';
+    if (data.to === 'END') highlightNode('end');
+  } else if (type === 'state') {
+    msg = `State 업데이트 (${data.node})`;
+    const parts = [];
+    if (data.has_tool_calls !== undefined) parts.push(`tool_calls: ${data.has_tool_calls}`);
+    if (data.tool_calls?.length) parts.push(`호출 도구: ${data.tool_calls.join(', ')}`);
+    if (data.content_preview) parts.push(`content: "${data.content_preview}"`);
+    if (data.tool) parts.push(`tool: ${data.tool}(${JSON.stringify(data.args)})`);
+    if (data.result) parts.push(`result: ${data.result}`);
+    sub = parts.join('\n');
+  } else if (type === 'trace') {
+    if (data.tool && data.args) {
+      msg = `${data.node} → ${data.tool}`;
+      sub = `인자: ${JSON.stringify(data.args)}`;
+    } else {
+      msg = data.node;
+      sub = data.result ?? '';
+    }
+  } else if (type === 'answer') {
+    msg = '최종 답변 생성';
+    sub = '';
+  } else if (type === 'error') {
+    msg = data.message ?? data;
+    sub = '';
+  }
+
+  div.innerHTML = `
+    <div class="trace-label">${icons[type] ?? '•'} ${labels[type] ?? type}</div>
+    <div class="trace-msg">${msg}</div>
+    ${sub ? `<div class="trace-sub">${sub}</div>` : ''}`;
+
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+// ── Timer ─────────────────────────────────────────
+let startTime = 0, timerInt = null;
+function startTimer() {
+  startTime = Date.now();
+  timerInt = setInterval(() => {
+    document.getElementById('timer').textContent = `⏱ ${((Date.now()-startTime)/1000).toFixed(1)}s`;
+  }, 100);
+}
+function stopTimer() { clearInterval(timerInt); }
+
+// ── Run ───────────────────────────────────────────
+let agentDone = false, lgDone = false;
+
+function checkAllDone() {
+  if (agentDone && lgDone) {
+    stopTimer();
+    const btn = document.getElementById('run-both');
+    btn.disabled = false;
+    btn.textContent = '▶ 동시 실행';
+  }
+}
+
+function runStream(url, traceId, statusId, answerId, finalId, errId, onHighlight) {
+  return new Promise((resolve) => {
+    const es = new EventSource(url);
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+
+      if (data.type === 'arch')   addTrace(traceId, 'arch',  data);
+      if (data.type === 'node')   addTrace(traceId, 'node',  data);
+      if (data.type === 'edge')   addTrace(traceId, 'edge',  data);
+      if (data.type === 'state_update') addTrace(traceId, 'state', data);
+      if (data.type === 'trace')  addTrace(traceId, 'trace', data);
+      if (data.type === 'error') {
+        addTrace(traceId, 'error', data);
+        setStatus(statusId, 'err');
+        document.getElementById(errId).textContent = '❌ ' + data.message;
+        document.getElementById(errId).style.display = 'block';
+        es.close(); resolve(); return;
+      }
+      if (data.type === 'answer') {
+        document.getElementById(answerId).style.display = 'block';
+        document.getElementById(finalId).textContent = data.content;
+        addTrace(traceId, 'answer', data);
+      }
+      if (data.type === 'done') {
+        setStatus(statusId, 'done');
+        es.close(); resolve();
+      }
+    };
+    es.onerror = () => {
+      setStatus(statusId, 'err');
+      es.close(); resolve();
+    };
+  });
+}
+
+async function runBoth() {
+  const q = document.getElementById('question').value.trim();
+  if (!q) return;
+
+  agentDone = lgDone = false;
+
+  // reset UI
+  document.getElementById('agent-trace').innerHTML = '<div class="empty">실행 중...</div>';
+  document.getElementById('lg-trace').innerHTML    = '<div class="empty">실행 중...</div>';
+  document.getElementById('agent-answer').style.display = 'none';
+  document.getElementById('lg-answer').style.display    = 'none';
+  document.getElementById('agent-err').style.display    = 'none';
+  document.getElementById('lg-err').style.display       = 'none';
+  ['gv-start','gv-llm','gv-tool','gv-end'].forEach(id =>
+    document.getElementById(id)?.classList.remove('active')
+  );
+  highlightNode('start');
+
+  const btn = document.getElementById('run-both');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>실행 중...';
+
+  setStatus('status-agent', 'run');
+  setStatus('status-lg',    'run');
+  startTimer();
+
+  const enc = encodeURIComponent(q);
+
+  // 두 스트림 병렬 실행
+  runStream(
+    `/api/agent/stream?question=${enc}`,
+    'agent-trace', 'status-agent', 'agent-answer', 'agent-final', 'agent-err'
+  ).then(() => { agentDone = true; checkAllDone(); });
+
+  runStream(
+    `/api/langgraph/stream?question=${enc}`,
+    'lg-trace', 'status-lg', 'lg-answer', 'lg-final', 'lg-err'
+  ).then(() => { lgDone = true; checkAllDone(); });
+}
+
+function clearAll() {
+  stopTimer();
+  document.getElementById('timer').textContent = '';
+  ['agent-trace','lg-trace'].forEach(id => {
+    document.getElementById(id).innerHTML = '<div class="empty">실행 버튼을 누르면 결과가 표시됩니다</div>';
+  });
+  ['agent-answer','lg-answer'].forEach(id => document.getElementById(id).style.display='none');
+  ['agent-err','lg-err'].forEach(id => document.getElementById(id).style.display='none');
+  ['status-agent','status-lg'].forEach(id => setStatus(id,'idle'));
+  ['gv-start','gv-llm','gv-tool','gv-end'].forEach(id =>
+    document.getElementById(id)?.classList.remove('active')
+  );
+  const btn = document.getElementById('run-both');
+  btn.disabled = false;
+  btn.textContent = '▶ 동시 실행';
+}
+</script>
+</body>
+</html>

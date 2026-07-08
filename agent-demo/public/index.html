@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>LangChain Agent Tools 실습</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#e2e6ef;color:#1e2235;min-height:100vh}
+
+  /* Header */
+  header{background:#fff;border-bottom:1px solid #c8cedd;padding:13px 28px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  header h1{font-size:.98rem;font-weight:700}
+  .pkg{font-family:monospace;font-size:.68rem;background:#e2e6ef;border:1px solid #c8cedd;padding:2px 8px;border-radius:4px;color:#556}
+
+  /* Page */
+  .page{max-width:860px;margin:0 auto;padding:20px 16px 60px}
+
+  /* Cards */
+  .card{background:#fff;border:1px solid #c8cedd;border-radius:10px;overflow:hidden;margin-bottom:14px}
+  .card-head{padding:13px 18px 11px;border-bottom:1px solid #eaedf4;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .card-title{font-size:.88rem;font-weight:700;margin-bottom:2px}
+  .card-desc{font-size:.74rem;color:#778;line-height:1.5}
+  .card-body{padding:16px 18px}
+
+  .badge{font-family:monospace;font-size:.67rem;font-weight:700;padding:3px 8px;border-radius:5px;white-space:nowrap;flex-shrink:0}
+  .b-blue{background:#dbeafe;color:#1d4ed8}
+  .b-green{background:#dcfce7;color:#15803d}
+  .b-purple{background:#ede9fe;color:#6d28d9}
+  .b-orange{background:#ffedd5;color:#c2410c}
+
+  /* Code */
+  .code-block{background:#1a1d2e;border-radius:7px;padding:12px 14px;font-family:monospace;font-size:.73rem;line-height:1.8;color:#c8d0f0;overflow-x:auto;white-space:pre;margin-bottom:14px}
+  .kw{color:#bb9af7}.fn{color:#7dcfff}.str{color:#9ece6a}.cmt{color:#565f89;font-style:italic}.cls{color:#e0af68}.num{color:#ff9e64}
+
+  /* Tools grid */
+  .tools-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+  @media(max-width:560px){.tools-grid{grid-template-columns:1fr}}
+  .tool-card{border-radius:8px;padding:11px 13px;border:1px solid transparent;transition:all .2s;cursor:pointer}
+  .tool-card:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.08)}
+  .tool-card.tc1{background:#eff6ff;border-color:#bfdbfe}
+  .tool-card.tc2{background:#f0fdf4;border-color:#bbf7d0}
+  .tool-card.tc3{background:#faf5ff;border-color:#e9d5ff}
+  .tool-card.tc4{background:#fff7ed;border-color:#fed7aa}
+  .tool-icon{font-size:1.4rem;margin-bottom:5px}
+  .tool-name{font-family:monospace;font-size:.72rem;font-weight:700;margin-bottom:3px}
+  .tc1 .tool-name{color:#1d4ed8}.tc2 .tool-name{color:#15803d}
+  .tc3 .tool-name{color:#6d28d9}.tc4 .tool-name{color:#c2410c}
+  .tool-desc{font-size:.74rem;color:#556;line-height:1.4}
+  .tool-eg{font-size:.7rem;color:#889;margin-top:5px}
+
+  /* Preset questions */
+  .preset-wrap{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+  .preset-btn{background:#f0f2f8;border:1px solid #dde1ec;border-radius:20px;padding:5px 13px;font-size:.77rem;cursor:pointer;font-family:inherit;color:#334;transition:all .15s}
+  .preset-btn:hover{background:#e0e7ff;border-color:#a5b4fc;color:#3730a3}
+  .preset-btn.active-preset{background:#2a4fcc;color:#fff;border-color:#2a4fcc}
+
+  /* Form */
+  label{display:block;font-size:.75rem;color:#556;font-weight:600;margin-bottom:4px}
+  textarea{width:100%;border:1px solid #c8cedd;border-radius:6px;padding:9px 12px;font-size:.85rem;font-family:inherit;color:#1e2235;background:#f6f8fc;outline:none;transition:border-color .15s,box-shadow .15s;resize:vertical;min-height:68px;line-height:1.5}
+  textarea:focus{border-color:#2a4fcc;box-shadow:0 0 0 3px rgba(42,79,204,.1);background:#fff}
+
+  .btn{padding:9px 18px;border:none;border-radius:6px;font-size:.83rem;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s,transform .1s}
+  .btn:hover:not(:disabled){opacity:.85;transform:translateY(-1px)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn-blue{background:#2a4fcc;color:#fff}
+  .btn-green{background:#16a34a;color:#fff}
+  .btn-gray{background:#6b7280;color:#fff}
+
+  /* Upload */
+  .upload-area{border:2px dashed #c8cedd;border-radius:8px;padding:20px 16px;text-align:center;cursor:pointer;transition:all .2s;background:#fafbfd;margin-bottom:10px}
+  .upload-area:hover{border-color:#2a4fcc;background:#eff6ff}
+  .upload-area.has-file{border-color:#16a34a;background:#f0fdf4}
+  .upload-icon{font-size:1.6rem;margin-bottom:4px}
+  .upload-text{font-size:.78rem;color:#778}
+  .upload-name{font-size:.8rem;color:#16a34a;font-weight:600;margin-top:3px}
+
+  /* PDF status */
+  .pdf-status{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;padding:3px 9px;border-radius:20px}
+  .ps-ok{background:#dcfce7;color:#15803d}
+  .ps-no{background:#fef3c7;color:#92400e}
+  .sdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+  .sdot-ok{background:#16a34a}
+  .sdot-no{background:#f59e0b}
+
+  /* Divider */
+  .divider{height:1px;background:#eaedf4;margin:14px 0}
+
+  /* Execution steps */
+  .steps-wrap{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+  .step-item{display:flex;gap:10px;align-items:flex-start;padding:10px 13px;border-radius:8px;font-size:.8rem;line-height:1.5}
+  .step-item.s-start{background:#f6f8fc;border:1px solid #e0e4ef;color:#556}
+  .step-item.s-call{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+  .step-item.s-result{background:#f8f9fa;border:1px solid #e0e4ef}
+  .step-item.s-answer{background:#faf5ff;border:1px solid #e9d5ff;color:#4c1d95}
+  .step-item.s-error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+  .step-icon{font-size:1rem;flex-shrink:0;margin-top:1px}
+  .step-body{flex:1;min-width:0}
+  .step-label{font-family:monospace;font-size:.68rem;font-weight:700;margin-bottom:3px;opacity:.7}
+  .step-content{word-break:break-word;white-space:pre-wrap}
+  .step-args{font-family:monospace;font-size:.7rem;background:rgba(0,0,0,.04);padding:2px 6px;border-radius:4px;margin-top:3px;display:inline-block}
+
+  /* Final answer */
+  .final-answer{background:#fff;border:1px solid #c8cedd;border-radius:8px;padding:14px 16px;font-size:.875rem;line-height:1.75;color:#1e2235;white-space:pre-wrap;word-break:break-word}
+
+  /* Streaming cursor */
+  .cursor{display:inline-block;width:8px;height:15px;background:#7c3aed;animation:blink .7s step-end infinite;vertical-align:middle;margin-left:2px;border-radius:1px}
+  @keyframes blink{50%{opacity:0}}
+
+  /* Timer */
+  .timer{font-family:monospace;font-size:.72rem;color:#889;float:right}
+
+  .err-box{background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:10px 13px;font-size:.78rem;color:#dc2626;display:none;margin-top:10px}
+
+  /* result hidden */
+  .result-wrap{display:none}
+  .result-wrap.show{display:block}
+
+  /* spinner */
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LangChain Agent Tools 실습</h1>
+  <span class="pkg">@langchain/langgraph · createReactAgent</span>
+  <span class="pkg">ReAct Pattern</span>
+</header>
+
+<div class="page">
+
+  <!-- 도구 소개 -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Agent가 보유한 4가지 Tool</div>
+        <div class="card-desc">질문에 따라 Agent가 자동으로 적절한 Tool을 선택해 실행합니다 (ReAct 패턴)</div>
+      </div>
+      <span class="badge b-purple">createReactAgent</span>
+    </div>
+    <div class="card-body">
+      <div class="code-block"><span class="kw">const</span> agent = <span class="fn">createReactAgent</span>({
+  llm: model,
+  tools: [getCurrentTimeTool, getWeatherTool, getAINewsTool, searchPDFTool],
+  messageModifier: <span class="str">"질문에 따라 적절한 도구를 선택해 한국어로 답변하세요."</span>,
+});
+<span class="kw">const</span> stream = <span class="kw">await</span> agent.<span class="fn">stream</span>(
+  { messages: [<span class="kw">new</span> <span class="cls">HumanMessage</span>(question)] },
+  { streamMode: <span class="str">"updates"</span> }
+);</div>
+
+      <div class="tools-grid">
+        <div class="tool-card tc1" onclick="setQ('지금 몇 시야?')">
+          <div class="tool-icon">🕐</div>
+          <div class="tool-name">get_current_time</div>
+          <div class="tool-desc">현재 한국 날짜와 시간을 반환합니다</div>
+          <div class="tool-eg">예: "지금 몇 시야?", "오늘 날짜가 뭐야?"</div>
+        </div>
+        <div class="tool-card tc2" onclick="setQ('서울 날씨 어때?')">
+          <div class="tool-icon">🌤️</div>
+          <div class="tool-name">get_weather</div>
+          <div class="tool-desc">특정 도시의 현재 날씨 정보를 조회합니다</div>
+          <div class="tool-eg">예: "서울 날씨 어때?", "부산 오늘 비와?"</div>
+        </div>
+        <div class="tool-card tc3" onclick="setQ('최신 AI 뉴스 알려줘')">
+          <div class="tool-icon">📰</div>
+          <div class="tool-name">get_ai_news</div>
+          <div class="tool-desc">최신 AI 기술 뉴스와 동향을 검색합니다</div>
+          <div class="tool-eg">예: "GPT-5 출시 소식", "구글 AI 최신 뉴스"</div>
+        </div>
+        <div class="tool-card tc4" onclick="setQ('연차 휴가 규정 알려줘')">
+          <div class="tool-icon">📄</div>
+          <div class="tool-name">search_pdf_document</div>
+          <div class="tool-desc">업로드된 PDF에서 회사 규정을 검색합니다</div>
+          <div class="tool-eg">예: "연차 규정", "복지 혜택이 뭐야?"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF 업로드 (Tool 4용) -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">PDF 문서 업로드 <span style="font-weight:400;font-size:.78rem;color:#889">(Tool 4 사용 시 필요)</span></div>
+        <div class="card-desc">회사 규정, 매뉴얼 등 PDF를 업로드하면 Agent가 문서 검색 도구를 사용할 수 있습니다</div>
+      </div>
+      <span class="pdf-status ps-no" id="pdf-status"><span class="sdot sdot-no"></span>미업로드</span>
+    </div>
+    <div class="card-body">
+      <div class="upload-area" id="upload-area" onclick="document.getElementById('pdf-file').click()">
+        <input type="file" id="pdf-file" accept=".pdf" style="display:none" onchange="pdfSelected(event)"/>
+        <div class="upload-icon">📄</div>
+        <div class="upload-text">클릭하여 PDF 파일 선택 (회사 규정, 매뉴얼 등)</div>
+        <div class="upload-name" id="pdf-fname"></div>
+      </div>
+      <button class="btn btn-green" id="upload-btn" onclick="uploadPDF()" style="width:100%" disabled>
+        ▶ PDF 업로드 & 임베딩 생성
+      </button>
+      <div class="err-box" id="upload-err"></div>
+    </div>
+  </div>
+
+  <!-- Agent 실행 -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Agent 실행</div>
+        <div class="card-desc">질문을 입력하면 Agent가 적절한 Tool을 선택해 단계적으로 답변합니다</div>
+      </div>
+      <span class="badge b-blue">ReAct</span>
+    </div>
+    <div class="card-body">
+
+      <!-- 빠른 질문 버튼 -->
+      <div style="margin-bottom:10px">
+        <label style="margin-bottom:6px">빠른 질문 선택</label>
+        <div class="preset-wrap" id="preset-wrap">
+          <button class="preset-btn" onclick="setQ(this.textContent, this)">지금 몇 시야?</button>
+          <button class="preset-btn" onclick="setQ(this.textContent, this)">오늘 날짜 알려줘</button>
+          <button class="preset-btn" onclick="setQ(this.textContent, this)">서울 날씨 어때?</button>
+          <button class="preset-btn" onclick="setQ(this.textContent, this)">도쿄 날씨 알려줘</button>
+          <button class="preset-btn" onclick="setQ(this.textContent, this)">최신 AI 뉴스 알려줘</button>
+          <button class="preset-btn" onclick="setQ(this.textContent, this)">GPT-5 관련 뉴스 있어?</button>
+          <button class="preset-btn" onclick="setQ(this.textContent, this)">연차 휴가 규정 알려줘</button>
+          <button class="preset-btn" onclick="setQ(this.textContent, this)">복지 혜택이 뭐가 있어?</button>
+        </div>
+      </div>
+
+      <label>질문 입력</label>
+      <textarea id="question" placeholder="Agent에게 질문하세요. Tool 카드를 클릭하거나 위 버튼을 선택하면 예시 질문이 자동 입력됩니다." style="margin-bottom:10px"></textarea>
+
+      <div style="display:flex;gap:9px">
+        <button class="btn btn-blue" id="run-btn" onclick="runAgent()" style="flex:1">
+          ▶ Agent 실행
+        </button>
+        <button class="btn btn-gray" onclick="clearResult()" style="padding:9px 14px">초기화</button>
+      </div>
+      <div class="err-box" id="run-err"></div>
+
+      <!-- 실행 결과 -->
+      <div class="result-wrap" id="result-wrap">
+        <div class="divider"></div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#889">실행 과정 (ReAct Steps)</div>
+          <span class="timer" id="timer"></span>
+        </div>
+
+        <div class="steps-wrap" id="steps-wrap"></div>
+
+        <div style="font-size:.72rem;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#889;margin-bottom:8px">최종 답변</div>
+        <div class="final-answer" id="final-answer"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Tool 색상 매핑 ────────────────────────────────
+const TOOL_META = {
+  get_current_time:    { icon: '🕐', label: '현재시간', color: '#1d4ed8', bg: '#eff6ff' },
+  get_weather:         { icon: '🌤️', label: '날씨 조회', color: '#15803d', bg: '#f0fdf4' },
+  get_ai_news:         { icon: '📰', label: 'AI 뉴스', color: '#6d28d9', bg: '#faf5ff' },
+  search_pdf_document: { icon: '📄', label: 'PDF 검색', color: '#c2410c', bg: '#fff7ed' },
+};
+
+function setQ(text, btn) {
+  document.getElementById('question').value = text;
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active-preset'));
+  if (btn) btn.classList.add('active-preset');
+}
+
+// ── PDF 업로드 ────────────────────────────────────
+let pdfFile = null;
+function pdfSelected(e) {
+  pdfFile = e.target.files[0];
+  if (!pdfFile) return;
+  document.getElementById('pdf-fname').textContent = pdfFile.name;
+  document.getElementById('upload-area').classList.add('has-file');
+  document.getElementById('upload-btn').disabled = false;
+}
+
+async function uploadPDF() {
+  if (!pdfFile) return;
+  const btn = document.getElementById('upload-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>임베딩 생성 중...';
+  document.getElementById('upload-err').style.display = 'none';
+  try {
+    const fd = new FormData();
+    fd.append('file', pdfFile);
+    const r = await fetch('/api/upload-pdf', { method: 'POST', body: fd });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error);
+    const st = document.getElementById('pdf-status');
+    st.className = 'pdf-status ps-ok';
+    st.innerHTML = `<span class="sdot sdot-ok"></span>${d.filename} (${d.chunk_count}청크)`;
+  } catch (e) {
+    const el = document.getElementById('upload-err');
+    el.textContent = '❌ ' + e.message;
+    el.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ PDF 업로드 & 임베딩 생성';
+  }
+}
+
+// ── Agent 실행 ────────────────────────────────────
+let startTime = 0;
+
+function addStep(type, data) {
+  const wrap = document.getElementById('steps-wrap');
+  const div = document.createElement('div');
+  div.className = `step-item s-${type}`;
+
+  if (type === 'start') {
+    div.innerHTML = `<span class="step-icon">🤖</span>
+      <div class="step-body"><div class="step-label">AGENT START</div>
+      <div class="step-content">${data.message}</div></div>`;
+
+  } else if (type === 'tool_call') {
+    const meta = TOOL_META[data.tool] || { icon: '🔧', label: data.tool, color: '#334', bg: '#f6f8fc' };
+    const argsStr = Object.keys(data.args || {}).length
+      ? Object.entries(data.args).map(([k,v]) => `${k}: "${v}"`).join(', ')
+      : '(인자 없음)';
+    div.style.background = meta.bg;
+    div.style.borderColor = meta.color + '44';
+    div.innerHTML = `<span class="step-icon">${meta.icon}</span>
+      <div class="step-body">
+        <div class="step-label" style="color:${meta.color}">TOOL CALL → ${data.tool}</div>
+        <div class="step-args">${argsStr}</div>
+      </div>`;
+
+  } else if (type === 'tool_result') {
+    const meta = TOOL_META[data.tool] || { icon: '📋', label: data.tool };
+    const preview = data.content.length > 300 ? data.content.slice(0, 300) + '...' : data.content;
+    div.innerHTML = `<span class="step-icon">✅</span>
+      <div class="step-body">
+        <div class="step-label">TOOL RESULT ← ${meta.label ?? data.tool}</div>
+        <div class="step-content" style="font-size:.76rem;color:#445;margin-top:3px">${preview}</div>
+      </div>`;
+
+  } else if (type === 'answer') {
+    div.innerHTML = `<span class="step-icon">💬</span>
+      <div class="step-body"><div class="step-label">FINAL ANSWER</div>
+      <div class="step-content" style="color:#4c1d95">${data.content.slice(0,100)}...</div></div>`;
+  } else if (type === 'error') {
+    div.innerHTML = `<span class="step-icon">❌</span>
+      <div class="step-body"><div class="step-label">ERROR</div>
+      <div class="step-content">${data.message}</div></div>`;
+  }
+
+  wrap.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function updateTimer() {
+  const el = document.getElementById('timer');
+  if (el) el.textContent = `⏱ ${((Date.now() - startTime) / 1000).toFixed(1)}s`;
+}
+
+async function runAgent() {
+  const question = document.getElementById('question').value.trim();
+  if (!question) return;
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Agent 실행 중...';
+  document.getElementById('run-err').style.display = 'none';
+  document.getElementById('result-wrap').classList.remove('show');
+  document.getElementById('steps-wrap').innerHTML = '';
+  document.getElementById('final-answer').innerHTML = '';
+  document.getElementById('result-wrap').classList.add('show');
+
+  startTime = Date.now();
+  const timerInterval = setInterval(updateTimer, 100);
+
+  try {
+    const es = new EventSource(`/api/agent/stream?question=${encodeURIComponent(question)}`);
+    let finalText = '';
+    let answered = false;
+
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+
+      if (data.type === 'done') {
+        es.close();
+        clearInterval(timerInterval);
+        updateTimer();
+        btn.disabled = false;
+        btn.textContent = '▶ Agent 실행';
+        // 최종 답변 마무리
+        const fa = document.getElementById('final-answer');
+        fa.innerHTML = finalText;
+        return;
+      }
+      if (data.type === 'error') {
+        es.close();
+        clearInterval(timerInterval);
+        addStep('error', data);
+        btn.disabled = false;
+        btn.textContent = '▶ Agent 실행';
+        return;
+      }
+
+      if (data.type === 'start')       addStep('start', data);
+      if (data.type === 'tool_call')   addStep('tool_call', data);
+      if (data.type === 'tool_result') addStep('tool_result', data);
+
+      if (data.type === 'answer') {
+        finalText = data.content;
+        const fa = document.getElementById('final-answer');
+        fa.innerHTML = finalText + '<span class="cursor"></span>';
+        if (!answered) { addStep('answer', data); answered = true; }
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      clearInterval(timerInterval);
+      btn.disabled = false;
+      btn.textContent = '▶ Agent 실행';
+    };
+
+  } catch (e) {
+    clearInterval(timerInterval);
+    const el = document.getElementById('run-err');
+    el.textContent = '❌ ' + e.message;
+    el.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '▶ Agent 실행';
+  }
+}
+
+function clearResult() {
+  document.getElementById('result-wrap').classList.remove('show');
+  document.getElementById('steps-wrap').innerHTML = '';
+  document.getElementById('final-answer').innerHTML = '';
+  document.getElementById('question').value = '';
+  document.getElementById('run-err').style.display = 'none';
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active-preset'));
+}
+
+// Enter (Ctrl+Enter) to run
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) runAgent();
+});
+
+// Check PDF status on load
+fetch('/api/pdf-status').then(r => r.json()).then(d => {
+  if (d.ready) {
+    const st = document.getElementById('pdf-status');
+    st.className = 'pdf-status ps-ok';
+    st.innerHTML = `<span class="sdot sdot-ok"></span>${d.filename} (${d.chunk_count}청크)`;
+  }
+});
+</script>
+</body>
+</html>

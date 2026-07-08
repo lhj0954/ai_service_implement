@@ -29,7 +29,7 @@ def analyse(state: State) -> dict :
 
 def generate(state: State) -> dict :
     "LLM을 호출하고 답변을 생성하는 Node"
-    response = make_llm().invoke(HumanMessage(content= state['question']))
+    response = make_llm().invoke([HumanMessage(content= state['question'])])
     return {"answer" : response.content, "log" : ["[generate]답변 생성 완료"]}
 
 builder = StateGraph(State)
@@ -64,6 +64,6 @@ def run_messages() :
     print
 
 if __name__ == "__main__" : 
-    run_values()
+    #run_values()
     #run_updates()
-    #run_messages()
+    run_messages()
